@@ -234,8 +234,8 @@ sbx ls
 ```
 
 ```
-NAME                STATUS   UPTIME
-devboard-guide      running  2m14s
+SANDBOX                 AGENT    STATUS    PORTS   WORKSPACE
+claude-sbx-quickstart   claude   running           /Users/mikecoleman/sandboxes/sbx-quickstart
 ```
 
 ---
