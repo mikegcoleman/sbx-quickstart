@@ -115,7 +115,7 @@ sent to Docker.
 **Step 3** — Verify:
 
 ```bash
-sbx --version
+sbx version
 ```
 
 > Docker Desktop is **not** required.
@@ -147,7 +147,7 @@ sbx login
 **Step 4** — Verify:
 
 ```powershell
-sbx --version
+sbx version
 ```
 
 > **Windows note**: By default, Windows sandboxes use non-Docker template variants —
