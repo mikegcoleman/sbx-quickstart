@@ -160,21 +160,9 @@ sbx version
 
 ---
 
-## 4. Authentication
+## 4. Initial Setup
 
-The recommended way to authenticate Claude Code is via the **interactive OAuth flow**. When you launch a sandbox for the first time, Claude Code will prompt you to log in through your browser — no API keys or environment variables required.
-
-```bash
-sbx run claude
-```
-
-On first run, if you're not already authenticated, Claude Code opens a browser window and walks you through the OAuth flow. Once complete, the token is managed by the proxy — Claude inside the sandbox can call the API but never has access to the raw credential.
-
----
-
-## 5. Orient yourself: first sandbox run
-
-Open a terminal in `~/sbx-quickstart` and launch Claude:
+Making sure you're in the ~/sbx-quickstart directory (or wherever you cloned this repo) start your sandbox. The below command creates a sandbox running claude and mounts the current directory as the workspace. 
 
 ```bash
 sbx run claude
@@ -200,7 +188,19 @@ hosts later with `sbx policy allow`.
 The first run pulls the agent image (~1–2 minutes). Subsequent starts reuse the cache
 and are nearly instant.
 
-Once Claude starts, give it this orientation prompt:
+Once the sandbox starts the Claude Code UI loads. In order to use Claude Code you'll need to login. 
+
+```bash
+/login
+```
+
+Note: The 'c for copy' functionality does not work, and the sandbox will not automatically open a web browser. You will need to copy the login URL and follow the OAuth flow. Take the code that Claude returns, and paste it into the sandbox to autheticate. You will only need to do this once. 
+
+---
+
+## 5. Orient yourself: first sandbox run
+
+Once Claude authenticates, give it this orientation prompt:
 
 ```
 Explore this codebase and give me:
