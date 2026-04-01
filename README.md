@@ -301,6 +301,8 @@ You should see your fork listed as `origin`. Also store your GitHub token so Cla
 echo "$(gh auth token)" | sbx secret set -g github
 ```
 
+**How sbx secrets work**: `sbx` has a built-in secrets manager that stores credentials in your OS keychain — never in plain text on disk or inside the VM. When Claude needs a credential (for example, to push a branch to GitHub), the host-side proxy intercepts the outbound request and injects the token automatically. Claude can make authenticated API calls but can never read, log, or exfiltrate the raw credential. The `-g` flag makes a secret global, meaning it's available to all sandboxes you create, not just the current one.
+
 ### Start a sandbox in branch mode
 
 ```bash
@@ -385,14 +387,86 @@ sbx rm devboard-bugs
 # Removes the VM, worktree, and local branch automatically
 ```
 
-> **Running agents in parallel**: because each branch-mode sandbox works in its own
-> worktree, you can run multiple agents on the same repo at the same time with no
-> conflicts:
->
-> ```bash
-> sbx run claude ~/sbx-quickstart --name agent-search --branch claude/search
-> sbx run claude ~/sbx-quickstart --name agent-notifications --branch claude/notifications
-> ```
+### Running agents in parallel
+
+Because each branch-mode sandbox works in its own worktree, you can run multiple agents
+on the same repo at the same time with no conflicts. This is where branch mode really
+shines — two agents, two features, zero interference.
+
+DevBoard has two unimplemented features that make ideal parallel tasks:
+
+- **Search** — `GET /issues/search?q=` returns 501; the query logic needs to be written
+- **Notifications** — `send_status_change_notification()` is a no-op stub; it needs to actually send emails on issue status changes
+
+Each agent gets its own prompt file. This lets you version-control your prompts alongside
+your code and pass them in cleanly on the command line:
+
+**`prompts/implement-search.txt`**
+
+```
+Implement the issue search endpoint in backend/app/routers/issues.py.
+
+The endpoint is at GET /issues/search?q= and currently returns 501.
+It should:
+- Accept a query string parameter `q`
+- Search issues by title and description using case-insensitive matching
+- Return the same schema as the list_issues endpoint
+- Pass the existing tests in backend/tests/test_issues.py
+
+Steps:
+1. Install dependencies: pip install -r backend/requirements.txt
+2. Read the existing list_issues() implementation for reference
+3. Implement the search using SQLAlchemy ilike: Issue.title.ilike(f"%{q}%") OR Issue.description.ilike(f"%{q}%")
+4. Run the test suite and confirm search tests pass
+5. Commit with a descriptive message
+```
+
+**`prompts/implement-notifications.txt`**
+
+```
+Implement email notifications in backend/app/services/notifications.py.
+
+The function send_status_change_notification() is currently a no-op stub.
+It should:
+- Send an email to the issue reporter when an issue's status changes
+- Use the smtplib standard library (no new dependencies)
+- Read SMTP config from environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+- Gracefully handle missing config (log a warning and return instead of crashing)
+- Include the issue title, old status, new status, and a link in the email body
+
+Steps:
+1. Read the existing stub and the update_issue() caller in routers/issues.py
+2. Implement the function
+3. Add a unit test that mocks smtplib.SMTP and confirms send_message is called
+4. Run the test suite and confirm all tests pass
+5. Commit with a descriptive message
+```
+
+Launch both agents simultaneously from your terminal:
+
+```bash
+sbx run claude --name agent-search --branch claude/search -- $(cat prompts/implement-search.txt)
+sbx run claude --name agent-notifications --branch claude/notifications -- $(cat prompts/implement-notifications.txt)
+```
+
+Each agent spins up in its own worktree, reads its prompt, and gets to work independently.
+Watch them both from a third terminal:
+
+```bash
+sbx ls
+# agent-search          running  0m42s
+# agent-notifications   running  0m38s
+```
+
+When both are done, review each branch and open PRs:
+
+```bash
+git diff main..claude/search
+git diff main..claude/notifications
+
+gh pr create --head claude/search --title "Implement issue search"
+gh pr create --head claude/notifications --title "Implement status change notifications"
+```
 
 ---
 

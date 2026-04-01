@@ -1,0 +1,15 @@
+Implement the issue search endpoint in backend/app/routers/issues.py.
+
+The endpoint is at GET /issues/search?q= and currently returns 501.
+It should:
+- Accept a query string parameter `q`
+- Search issues by title and description using case-insensitive matching
+- Return the same schema as the list_issues endpoint
+- Pass the existing tests in backend/tests/test_issues.py
+
+Steps:
+1. Install dependencies: pip install -r backend/requirements.txt
+2. Read the existing list_issues() implementation for reference
+3. Implement the search using SQLAlchemy ilike: Issue.title.ilike(f"%{q}%") OR Issue.description.ilike(f"%{q}%")
+4. Run the test suite and confirm search tests pass
+5. Commit with a descriptive message

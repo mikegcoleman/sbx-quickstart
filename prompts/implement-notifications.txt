@@ -1,0 +1,16 @@
+Implement email notifications in backend/app/services/notifications.py.
+
+The function send_status_change_notification() is currently a no-op stub.
+It should:
+- Send an email to the issue reporter when an issue's status changes
+- Use the smtplib standard library (no new dependencies)
+- Read SMTP config from environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+- Gracefully handle missing config (log a warning and return instead of crashing)
+- Include the issue title, old status, new status, and a link in the email body
+
+Steps:
+1. Read the existing stub and the update_issue() caller in routers/issues.py
+2. Implement the function
+3. Add a unit test that mocks smtplib.SMTP and confirms send_message is called
+4. Run the test suite and confirm all tests pass
+5. Commit with a descriptive message
