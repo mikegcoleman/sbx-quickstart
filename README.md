@@ -300,7 +300,7 @@ git remote -v
 You should see your fork listed as `origin`. Also store your GitHub token so Claude can push and open PRs from inside the sandbox:
 
 ```bash
-echo "$(gh auth token)" | sbx secret set -g github
+echo "$(gh auth token)" | sbx secret set -g github && sbx ls
 ```
 
 **How sbx secrets work**: `sbx` has a built-in secrets manager that stores credentials in your OS keychain — never in plain text on disk or inside the VM. When Claude needs a credential (for example, to push a branch to GitHub), the host-side proxy intercepts the outbound request and injects the token automatically. Claude can make authenticated API calls but can never read, log, or exfiltrate the raw credential. The `-g` flag makes a secret global, meaning it's available to all sandboxes you create, not just the current one.
