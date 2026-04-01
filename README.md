@@ -442,15 +442,23 @@ Steps:
 5. Commit with a descriptive message
 ```
 
-Launch both agents simultaneously from your terminal:
+Launch both agents simultaneously each **from it's own terminal terminal session**:
+
+In terminal one: 
 
 ```bash
-sbx run claude --name agent-search --branch claude/search -- $(cat prompts/implement-search.txt)
-sbx run claude --name agent-notifications --branch claude/notifications -- $(cat prompts/implement-notifications.txt)
+sbx run --name add-search claude . --branch add-search -- "$(cat prompts/implement-search.txt)"
 ```
 
+In terminal 2: 
+
+```bash
+sbx run --name add-notif  claude . --branch add-notif  -- "$(cat prompts/implement-notifications.txt)"
+```
+
+
 Each agent spins up in its own worktree, reads its prompt, and gets to work independently.
-Watch them both from a third terminal:
+Watch them both **from a third terminal**:
 
 ```bash
 sbx ls
@@ -461,11 +469,11 @@ sbx ls
 When both are done, review each branch and open PRs:
 
 ```bash
-git diff main..claude/search
-git diff main..claude/notifications
+git diff main..claude/add-search
+git diff main..claude/add-notif
 
-gh pr create --head claude/search --title "Implement issue search"
-gh pr create --head claude/notifications --title "Implement status change notifications"
+gh pr create --head add-search --title "Implement issue search"
+gh pr create --head add-notif --title "Implement status change notifications"
 ```
 
 ---
