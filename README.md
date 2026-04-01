@@ -224,13 +224,13 @@ actual files — including any changes you make on the host while it's running.
 
 `sbx run` is interactive — it occupies your terminal as a live agent session. Any time
 you need to run a host-side command (`sbx ls`, `sbx ports`, `git diff`, etc.) you have
-two options:
+a few options:
 
 - **Open a new terminal tab** and leave Claude running in the original tab.
-- **Detach** by pressing `Ctrl-C`. The agent keeps running in the background. Reattach
-  any time with `sbx run <name>`.
+- **Detach** by pressing `Ctrl-C` twice you will shut claude down
+- **!** In claude any commande preceded by a `!` is interpreted as a Bash command. For instance `!ls` will list the current directory contents. 
 
-For this guide use `Ctrl-C` (twice) to break out of the agent and drop back to the terminal. 
+For this guide use `Ctrl-C` twice to break out of the agent and drop back to the terminal. 
 
 Do that now. 
 
@@ -262,15 +262,15 @@ The dashboard shows:
 
 From the dashboard you can:
 
-| Key      | Action                                          |
-|----------|-------------------------------------------------|
-| `c`      | Create a new sandbox                            |
-| `s`      | Start or stop the selected sandbox              |
-| `Enter`  | Attach to the agent session (same as `sbx run`) |
-| `x`      | Open a shell inside the sandbox (`sbx exec`)    |
-| `r`      | Remove the selected sandbox                     |
+| Key      | Action                                               |
+|----------|------------------------------------------------------|
+| `c`      | Create a new sandbox                                 |
+| `s`      | Start or stop the selected sandbox                   |
+| `Enter`  | Attach to the agent session (same as `sbx run`)      |
+| `x`      | Open a shell inside the sandbox (`sbx exec`)         |
+| `r`      | Remove the selected sandbox                          |
 | `Tab`    | Switch between the Sandboxes panel and Network panel |
-| `?`      | Show all shortcuts                              |
+| `?`      | Show all shortcuts                                   |
 
 The **Network panel** (press `Tab`) shows a live log of every outbound connection the
 sandbox makes — which hosts were reached, which were blocked. Using the arrows you can move up and down the log and either allow or block these hosts. This is the fastest way to debug "why can't Claude install this package?"
