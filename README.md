@@ -1,9 +1,13 @@
 # Docker Sandboxes: A Hands-On Guide with Claude
 
-> **Status**: This guide covers Docker Sandboxes as of its experimental launch.
-> All commands use the `sbx` CLI.
+> **Status**: This guide covers the Docker Sandboxes `sbx` release as of its experimental launch.
 
 ---
+
+## What you'll need
+- A paid Claude subscription
+- A Github auth token with permissions to push and pull against the repo you will clone
+- Windows 11 or MacOS on Apple Silicon
 
 ## What you'll learn
 
@@ -224,8 +228,9 @@ two options:
 - **Detach** by pressing `Ctrl-C`. The agent keeps running in the background. Reattach
   any time with `sbx run <name>`.
 
-This guide calls out which approach to use at each step. The key thing to remember:
-detaching doesn't stop Claude — it just disconnects your view of the session.
+For this guide use `Ctrl-C` (twice) to break out of the agent and drop back to the terminal. 
+
+Do that now. 
 
 **Check what's running** (new terminal or after detaching):
 
@@ -242,8 +247,7 @@ claude-sbx-quickstart   claude   running           /Users/mikecoleman/sandboxes/
 
 ## 6. The interactive TUI dashboard
 
-The `sbx` TUI is a host-side command — run it in a **new terminal tab** while Claude
-is running in another, or after detaching with `Ctrl-C`.
+Simple executing `sbx` with no parameters brings up the TUI. 
 
 ```bash
 sbx
@@ -267,10 +271,9 @@ From the dashboard you can:
 | `?`      | Show all shortcuts                              |
 
 The **Network panel** (press `Tab`) shows a live log of every outbound connection the
-sandbox makes — which hosts were reached, which were blocked, and which policy rule
-applied. This is the fastest way to debug "why can't Claude install this package?"
+sandbox makes — which hosts were reached, which were blocked. Using the arrows you can move up and down the log and either allow or block these hosts. This is the fastest way to debug "why can't Claude install this package?"
 
-Press `q` or `Ctrl-C` to exit the dashboard without stopping any sandboxes.
+Press `Ctrl-C` to exit the dashboard without stopping any sandboxes.
 
 ---
 
