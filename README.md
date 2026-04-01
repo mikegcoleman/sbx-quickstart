@@ -27,20 +27,20 @@ of intentional bugs and unfinished features that make ideal exercises for Claude
 ## Table of contents
 
 1. [How Docker Sandboxes work](#1-how-docker-sandboxes-work)
-2. [Installation](#2-installation)
-3. [Authentication and credentials](#3-authentication-and-credentials)
-4. [Orient yourself: first sandbox run](#4-orient-yourself-first-sandbox-run)
-5. [The interactive TUI dashboard](#5-the-interactive-tui-dashboard)
-6. [Branch mode: safe parallel development](#6-branch-mode-safe-parallel-development)
-7. [Exercise: run the test suite](#7-exercise-run-the-test-suite)
-8. [Exercise: bug hunt (pagination + updated_at)](#8-exercise-bug-hunt)
-9. [Docker Compose inside the sandbox](#9-docker-compose-inside-the-sandbox)
-10. [Port forwarding with `sbx ports`](#10-port-forwarding-with-sbx-ports)
-11. [Exercise: implement issue search](#11-exercise-implement-issue-search)
-12. [Network policies](#12-network-policies)
-13. [Multiple workspaces](#13-multiple-workspaces)
-14. [Debugging with `sbx exec`](#14-debugging-with-sbx-exec)
-15. [Credentials deep-dive](#15-credentials-deep-dive)
+2. [Fork and clone this repo](#2-fork-and-clone-this-repo)
+3. [Installation](#3-installation)
+4. [Authentication](#4-authentication)
+5. [Orient yourself: first sandbox run](#5-orient-yourself-first-sandbox-run)
+6. [The interactive TUI dashboard](#6-the-interactive-tui-dashboard)
+7. [Branch mode: safe parallel development](#7-branch-mode-safe-parallel-development)
+8. [Exercise: run the test suite](#8-exercise-run-the-test-suite)
+9. [Exercise: bug hunt (pagination + updated_at)](#9-exercise-bug-hunt)
+10. [Docker Compose inside the sandbox](#10-docker-compose-inside-the-sandbox)
+11. [Port forwarding with `sbx ports`](#11-port-forwarding-with-sbx-ports)
+12. [Exercise: implement issue search](#12-exercise-implement-issue-search)
+13. [Network policies](#13-network-policies)
+14. [Multiple workspaces](#14-multiple-workspaces)
+15. [Debugging with `sbx exec`](#15-debugging-with-sbx-exec)
 16. [Production patterns](#16-production-patterns)
 17. [Appendix A: prompt library](#appendix-a-prompt-library)
 18. [Appendix B: CLI quick reference](#appendix-b-cli-quick-reference)
@@ -75,7 +75,24 @@ Your machine
 
 ---
 
-## 2. Installation
+## 2. Fork and clone this repo
+
+Before diving into the exercises, fork this repo to your GitHub account so you can push branches and open pull requests as you work through the guide.
+
+**Step 1** — Fork on GitHub by clicking the **Fork** button at the top of the repo page.
+
+**Step 2** — Clone your fork to your local machine:
+
+```bash
+git clone https://github.com/<your-username>/sbx-quickstart.git ~/sbx-quickstart
+cd ~/sbx-quickstart
+```
+
+From this point on, all commands assume you're in `~/sbx-quickstart`. No further `cd` into the repo directory is needed.
+
+---
+
+## 3. Installation
 
 ### macOS (Apple Silicon required)
 
@@ -143,57 +160,23 @@ sbx --version
 
 ---
 
-## 3. Authentication and credentials
+## 4. Authentication
 
-Claude Code needs an Anthropic API key. Docker Sandboxes never stores the key inside
-the VM — instead, the host-side proxy intercepts outbound requests to `api.anthropic.com`
-and injects the `Authorization` header. Claude inside the sandbox can call the API but
-can never read the raw key.
-
-### Store your Anthropic key (recommended)
+The recommended way to authenticate Claude Code is via the **interactive OAuth flow**. When you launch a sandbox for the first time, Claude Code will prompt you to log in through your browser — no API keys or environment variables required.
 
 ```bash
-sbx secret set -g anthropic
-```
-
-You'll be prompted to paste your key interactively. The `-g` flag makes it global
-(available to all sandboxes). The key is stored in your OS keychain.
-
-You can also pipe it non-interactively:
-
-```bash
-echo "$ANTHROPIC_API_KEY" | sbx secret set -g anthropic
-```
-
-### Alternative: environment variable
-
-If you'd rather not use the keychain, export the variable in your shell before running:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-api03-...
 sbx run claude
 ```
 
-### OAuth (no API key needed)
-
-If neither a secret nor an environment variable is set, Claude Code falls back to
-interactive OAuth when the sandbox starts. The proxy handles the flow — no token is
-stored in the VM.
-
-### Check what's stored
-
-```bash
-sbx secret ls
-```
+On first run, if you're not already authenticated, Claude Code opens a browser window and walks you through the OAuth flow. Once complete, the token is managed by the proxy — Claude inside the sandbox can call the API but never has access to the raw credential.
 
 ---
 
-## 4. Orient yourself: first sandbox run
+## 5. Orient yourself: first sandbox run
 
-Open a terminal, navigate to the root of this repo, and launch Claude:
+Open a terminal in `~/sbx-quickstart` and launch Claude:
 
 ```bash
-cd ~/path/to/devboard-guide
 sbx run claude
 ```
 
@@ -257,7 +240,7 @@ devboard-guide      running  2m14s
 
 ---
 
-## 5. The interactive TUI dashboard
+## 6. The interactive TUI dashboard
 
 The `sbx` TUI is a host-side command — run it in a **new terminal tab** while Claude
 is running in another, or after detaching with `Ctrl-C`.
@@ -291,7 +274,7 @@ Press `q` or `Ctrl-C` to exit the dashboard without stopping any sandboxes.
 
 ---
 
-## 6. Branch mode: safe parallel development
+## 7. Branch mode: safe parallel development
 
 By default, `sbx run` uses **direct mode** — Claude edits your working tree in place.
 That's fine for quick tasks, but gets messy when you want to review changes before they
@@ -301,24 +284,15 @@ land, or run multiple agents at the same time.
 working tree. You keep working normally; Claude works on its branch; you review the
 diff and merge when you're happy.
 
-### Before you start: push to GitHub
+### Before you start
 
-Branch mode requires a Git repo. If you want to open actual PRs (the goal of this
-exercise), you'll also need a GitHub remote. Run these once from your host terminal:
+Branch mode requires a Git repo with a GitHub remote. Since you already forked and cloned the repo in step 2, you're all set. Just make sure your fork is the configured remote:
 
 ```bash
-cd ~/path/to/devboard-guide
-
-# Initialize git if you haven't already
-git init
-git add .
-git commit -m "Initial commit: DevBoard demo app"
-
-# Create a GitHub repo and push (requires the gh CLI)
-gh repo create devboard-sandbox-demo --public --source=. --push
+git remote -v
 ```
 
-Also store your GitHub token so Claude can push and open PRs from inside the sandbox:
+You should see your fork listed as `origin`. Also store your GitHub token so Claude can push and open PRs from inside the sandbox:
 
 ```bash
 echo "$(gh auth token)" | sbx secret set -g github
@@ -413,13 +387,13 @@ sbx rm devboard-bugs
 > conflicts:
 >
 > ```bash
-> sbx run claude ~/devboard-guide --name agent-search --branch claude/search
-> sbx run claude ~/devboard-guide --name agent-notifications --branch claude/notifications
+> sbx run claude ~/sbx-quickstart --name agent-search --branch claude/search
+> sbx run claude ~/sbx-quickstart --name agent-notifications --branch claude/notifications
 > ```
 
 ---
 
-## 7. Exercise: run the test suite
+## 8. Exercise: run the test suite
 
 This exercise gets Claude to set up the Python environment and run the backend tests
 autonomously — a common first task when landing on an unfamiliar codebase.
@@ -427,7 +401,6 @@ autonomously — a common first task when landing on an unfamiliar codebase.
 **Start a named sandbox:**
 
 ```bash
-cd ~/path/to/devboard-guide
 sbx run claude --name devboard-tests --branch auto
 ```
 
@@ -465,7 +438,7 @@ PASSED  tests/test_issues.py::test_search_returns_501_until_implemented
 
 ---
 
-## 8. Exercise: bug hunt
+## 9. Exercise: bug hunt
 
 With the failing tests identified, ask Claude to fix them. Continue in the same session
 you opened in Section 7:
@@ -522,7 +495,7 @@ Run the full test suite and confirm all tests pass (or are intentionally skipped
 
 ---
 
-## 9. Docker Compose inside the sandbox
+## 10. Docker Compose inside the sandbox
 
 Each sandbox has its own private Docker daemon. Claude can run `docker compose up`,
 build images, and start containers — none of which appear in your host's `docker ps`.
@@ -560,7 +533,7 @@ the sandbox, all images, containers, and Postgres data are deleted automatically
 
 ---
 
-## 10. Port forwarding with `sbx ports`
+## 11. Port forwarding with `sbx ports`
 
 Sandboxes are network-isolated — your browser can't reach a server inside one by
 default. `sbx ports` punches a hole from a host port to a sandbox port.
@@ -611,7 +584,7 @@ sbx ports devboard-compose --unpublish 8080:8000
 
 ---
 
-## 11. Exercise: implement issue search
+## 12. Exercise: implement issue search
 
 The `GET /projects/{project_id}/issues/search` endpoint exists but returns `501`.
 The TODO is well-commented. This exercise has Claude implement it end-to-end.
@@ -660,7 +633,7 @@ will work automatically — type a query and press Enter.
 
 ---
 
-## 12. Network policies
+## 13. Network policies
 
 Every sandbox routes outbound HTTP/HTTPS through a host-side proxy that enforces
 access rules you define. There are three built-in postures:
@@ -749,7 +722,7 @@ sbx policy reset
 
 ---
 
-## 13. Multiple workspaces
+## 14. Multiple workspaces
 
 You can mount additional directories into a sandbox alongside the primary workspace.
 Useful patterns:
@@ -761,11 +734,11 @@ Useful patterns:
 ### Mount two directories
 
 ```bash
-sbx run claude ~/devboard-guide/backend ~/devboard-guide/frontend:ro --name devboard-full
+sbx run claude ~/sbx-quickstart/backend ~/sbx-quickstart/frontend:ro --name devboard-full
 ```
 
-- `~/devboard-guide/backend` — primary workspace (read/write); agent starts here
-- `~/devboard-guide/frontend:ro` — mounted read-only; agent can read but not write
+- `~/sbx-quickstart/backend` — primary workspace (read/write); agent starts here
+- `~/sbx-quickstart/frontend:ro` — mounted read-only; agent can read but not write
 
 Both appear inside the sandbox at their **exact host paths**, so relative paths in
 error messages match what you see locally.
@@ -789,7 +762,7 @@ the full picture but only write to specific parts.
 
 ---
 
-## 14. Debugging with `sbx exec`
+## 15. Debugging with `sbx exec`
 
 `sbx exec` opens a shell (or runs a command) inside a running sandbox. It always
 runs in a **separate terminal** — it's a host command, not something you type inside
@@ -844,7 +817,7 @@ in subsequent sessions.
 
 ---
 
-## 15. Credentials deep-dive
+## 16. Credentials deep-dive
 
 ### Supported services
 
@@ -897,7 +870,7 @@ read it directly. Only use this for tokens where proxy injection isn't needed.
 
 ---
 
-## 16. Production patterns
+## 17. Production patterns
 
 ### Always name your sandboxes
 
