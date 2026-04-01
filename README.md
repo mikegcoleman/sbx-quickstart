@@ -308,11 +308,15 @@ echo "$(gh auth token)" | sbx secret set -g github
 ### Start a sandbox in branch mode
 
 ```bash
-sbx run claude --name devboard-bugs --branch claude/fix-bugs
+sbx run --name devboard-bugs claude .  --branch claude/fix-bugs
 ```
 
 `sbx` creates a worktree under `.sbx/` in your repo root. All of Claude's changes land
 in that worktree, not in your main working tree.
+
+```bash
+!ls .sbx
+```
 
 **Give Claude a concrete task immediately** — branch mode is most useful when the agent
 has a clear goal to work toward autonomously:
