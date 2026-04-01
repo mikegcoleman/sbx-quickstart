@@ -198,7 +198,7 @@ Once the sandbox starts the Claude Code UI loads. In order to use Claude Code yo
 /login
 ```
 
-Note: The 'c for copy' functionality does not work, and the sandbox will not automatically open a web browser. You will need to copy the login URL and follow the OAuth flow. Take the code that Claude returns, and paste it into the sandbox to autheticate. You will only need to do this once. 
+**Note**: The 'c for copy' functionality does not work, and the sandbox will not automatically open a web browser. You will need to copy the login URL and follow the OAuth flow. Take the code that Claude returns, and paste it into the sandbox to autheticate. You will only need to do this once. 
 
 ---
 
