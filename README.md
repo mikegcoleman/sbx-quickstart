@@ -1085,11 +1085,11 @@ Rules:
 ```bash
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
 sbx run claude                          # start (or reconnect to) a sandbox
-sbx run claude --name my-sb             # with an explicit name
-sbx run claude --branch my-feature      # branch mode — agent works on own branch
-sbx run claude --branch auto            # let sbx name the branch
+sbx run --name my-sb claude             # with an explicit name
+sbx run --branch my-feature claude      # branch mode — agent works on own branch
+sbx run --branch auto claude            # let sbx name the branch
 sbx create claude .                     # create without attaching
-sbx ls                                  # list sandboxes        [host terminal]
+sbx ls                                  # list sandboxes     
 sbx stop my-sb                          # pause (preserves installed packages)
 sbx rm my-sb                            # delete sandbox + VM + worktrees
 
@@ -1108,19 +1108,19 @@ sbx ports my-sb --unpublish 8080:8000  # stop forwarding
 
 # ── Network policies ───────────────────────────────────────────────────────────
 # (all sbx policy commands run in a host terminal)
-sbx policy ls                           # list active rules
-sbx policy log                          # show connection log (allowed + blocked)
-sbx policy log my-sb                    # filter by sandbox
-sbx policy allow network example.com    # allow a host
-sbx policy allow network "*.npm.org,*.pypi.org"  # allow multiple
-sbx policy deny network ads.example.com # block a host
-sbx policy rm network --resource example.com     # remove a rule
+sbx policy ls                                       # list active rules
+sbx policy log                                      # show connection log (allowed + blocked)
+sbx policy log my-sb                                # filter by sandbox
+sbx policy allow network example.com                # allow a host
+sbx policy allow network "*.npm.org,*.pypi.org"     # allow multiple
+sbx policy deny network ads.example.com             # block a host
+sbx policy rm network --resource example.com         # remove a rule
 sbx policy reset                        # wipe all rules, reprompt for default policy
 sbx policy set-default balanced         # set default without interactive prompt (CI)
 
 # ── Credentials ────────────────────────────────────────────────────────────────
 sbx secret set -g anthropic             # store Anthropic key globally
-sbx secret set my-sb openai            # scope to one sandbox
+sbx secret set my-sb openai             # scope to one sandbox
 sbx secret ls                           # list stored secrets
 sbx secret rm -g github                 # remove a secret
 
