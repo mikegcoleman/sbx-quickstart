@@ -46,9 +46,10 @@ of intentional bugs and unfinished features that make ideal exercises for Claude
 12. [Network policies](#12-network-policies)
 13. [Multiple workspaces](#13-multiple-workspaces)
 14. [Debugging with `sbx exec`](#14-debugging-with-sbx-exec)
-15. [Appendix A: Prompt library](#appendix-a-prompt-library)
-16. [Appendix B: CLI quick reference](#appendix-b-cli-quick-reference)
-17. [Appendix C: Troubleshooting](#appendix-c-troubleshooting)
+15. [Custom templates](#15-custom-templates)
+16. [Appendix A: Prompt library](#appendix-a-prompt-library)
+17. [Appendix B: CLI quick reference](#appendix-b-cli-quick-reference)
+18. [Appendix C: Troubleshooting](#appendix-c-troubleshooting)
 
 ---
 
@@ -129,7 +130,7 @@ winget install -h Docker.sbx
 > (required for the Docker Compose exercise), pass `--template`:
 >
 > ```powershell
-> sbx create --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
+> sbx create --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude .
 > ```
 
 Now that `sbx`has been installed it's time to do some initial configuration. 
@@ -211,17 +212,29 @@ isn't needed.
 
 ## 5. Create your sandbox
 
+### Bring your Claude config (optional)
+
+The sandbox can only see your workspace directory — per-user config files like `~/.claude/CLAUDE.md` or `~/.claude/settings.json` are not available inside the VM. If you rely on any of those, copy them into your project before creating the sandbox:
+
+```bash
+cp ~/.claude/CLAUDE.md ~/sbx-quickstart/CLAUDE.md
+```
+
+> **Note**: Symlinks won't work here. The sandbox cannot follow a symlink that points outside its designated workspace, so copy the files directly.
+
+---
+
 `sbx create` provisions a sandbox without attaching to it — useful when you want to
 set it up, verify it appears in `sbx ls`, or script multiple sandboxes before starting
 any of them. `sbx run` then attaches an agent session to an existing sandbox (or
 creates one on the fly if it doesn't exist yet).
 
-From `~/sbx-quickstart`, create your sandbox:
+> **Important**: run these commands from your cloned repo directory. If you followed section 2, that's `~/sbx-quickstart`. The `.` tells `sbx` to mount the current directory as the workspace.
 
 **Mac users:**
 
 ```bash
-sbx create --name=quickstart claude
+sbx create --name=quickstart claude .
 ```
 
 **Windows users:**
@@ -229,7 +242,7 @@ sbx create --name=quickstart claude
 By default the Windows sandbox templates do not include the Docker engine, but you will need it for later exercises. Pass `--template` at create time:
 
 ```powershell
-sbx create --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude
+sbx create --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude .
 ```
 
 Confirm it was created:
@@ -264,7 +277,7 @@ Choose your preferred login option.
 
 ## 6. Orient yourself
 
-Once Claude is authenticated, give it this orientation prompt:
+Once Claude is authenticated, give Claude the following prompt:
 
 ```
 Explore this codebase and give me:
@@ -341,7 +354,7 @@ sbx run quickstart
 
 **Step 1 — Run the tests:**
 
-Give Claude Code the following prompt
+Give Claude the following prompt:
 
 ```
 Set up the Python environment for the FastAPI backend and run the test suite.
@@ -357,14 +370,13 @@ It will take about 3-4 minutes for this to all complete.
 
 **Step 2 — Fix the bugs:**
 
-Give Claude Code the following prompt. 
+Give Claude the following prompt:
 
 ```
-Three tests are failing. Fix each bug:
+Two tests are failing due to a pagination bug. Fix it:
 
 1. test_pagination_first_page_returns_results — the pagination offset is wrong
 2. test_pagination_second_page — related to the same bug
-3. test_updated_at_changes_on_update — the updated_at field never changes
 
 For each fix:
 - Explain what the bug is and why it causes the failure
@@ -378,7 +390,7 @@ step, no polling delay.
 
 **Step 3 — Confirm everything passes:**
 
-Use the following prompt with Claude Code. 
+Give Claude the following prompt:
 
 ```
 Run the full test suite and confirm all tests pass (or are intentionally skipped).
@@ -409,16 +421,22 @@ Add `--branch` to put Claude on its own worktree. This works on your existing
 `quickstart` sandbox — no new sandbox is created:
 
 ```bash
-sbx run quickstart  --branch=fix-bugs
+sbx run quickstart --branch=fix-bugs
 ```
 
-`sbx` creates a worktree under `.sbx/sandbox-worktrees` in your repo root. Give Claude a task:
+> **Tip**: You don't have to name the branch yourself. `--branch auto` lets `sbx` generate a name for you — handy when you just want isolation without thinking about branch names.
 
-Issue the following command 
+`sbx` creates a worktree under `.sbx/quickstart-worktrees/fix-bugs` in your repo root. If you haven't already, add `.sbx/` to your `.gitignore` so worktrees don't show up as untracked files:
+
+```bash
+echo '.sbx/' >> .gitignore
+```
+
+Give Claude the following prompt:
 
 ```
-The test suite has failing tests. Fix the pagination bug in backend/app/routers/issues.py
-and the updated_at bug in backend/app/models.py. Commit the fixes with a descriptive message.
+One test is still failing after the direct-mode fix. The updated_at field in backend/app/models.py
+never changes on update. Fix the bug and commit with a descriptive message.
 ```
 
 Monitor **from a second terminal** without interrupting the session
@@ -510,7 +528,7 @@ If necessary, reconnect to your sandbox:
 sbx run quickstart
 ```
 
-**Give Claude this prompt:**
+Give Claude the following prompt:
 
 ```
 Start the full application stack using Docker Compose.
@@ -665,6 +683,16 @@ sbx policy reset
 # Choose "Balanced" (option 2)
 ```
 
+### Reaching host services from inside the sandbox
+
+If you have a service running on your host machine (e.g. a local Ollama instance or a database), you can't reach it via `localhost` from inside the sandbox — that resolves to the VM itself. Use `host.docker.internal` instead, and add a policy rule if needed:
+
+```bash
+sbx policy allow network localhost:11434
+```
+
+Then inside the sandbox, point your client at `host.docker.internal:11434`.
+
 ---
 
 ## 13. Multiple workspaces
@@ -673,8 +701,19 @@ You can mount additional directories into a sandbox alongside the primary worksp
 Useful patterns: a shared `libs/` repo the agent can reference, `docs/` alongside
 `app/`, or frontend and backend as separate repos both mounted at once.
 
+Workspaces are configured at creation time — you can't add mounts to an existing sandbox. That means we need to recreate `quickstart`.
+
+> **Warning**: `sbx rm` permanently deletes the sandbox and all its Git worktrees under `.sbx/`. By this point in the guide you've already pushed your branches to remote and opened PRs, so the local worktrees are safe to lose. Your source files in `~/sbx-quickstart` are untouched — only the sandbox VM and worktrees are removed.
+
 ```bash
-sbx run --name=devboard-full claude ~/sbx-quickstart/backend ~/sbx-quickstart/frontend:ro
+sbx stop quickstart
+sbx rm quickstart
+```
+
+Now recreate it with both workspaces mounted:
+
+```bash
+sbx run --name=quickstart claude ~/sbx-quickstart/backend ~/sbx-quickstart/frontend:ro
 ```
 
 - `~/sbx-quickstart/backend` — primary workspace (read/write); agent starts here
@@ -685,7 +724,7 @@ messages match what you see locally.
 
 ### Cross-repo exercise
 
-With both workspaces mounted:
+With both workspaces mounted, give Claude the following prompt:
 
 ```
 The frontend's api.ts sends search requests to GET /issues/search, but the
@@ -739,6 +778,56 @@ sbx exec -d quickstart bash -c \
 
 The file is sourced on every login shell, so Claude will see the variable in
 subsequent sessions.
+
+---
+
+## 15. Custom templates
+
+> **Note**: This section is for reference only. Building custom templates requires Docker Desktop (or another Docker daemon) installed on your host machine — it is not something you do inside the sandbox.
+
+Every built-in agent template (`claude-code`, `codex`, `gemini`, etc.) is a plain Docker image. You can extend any of them to pre-bake toolchains, language runtimes, config files, or any other dependencies your project needs. Claude won't have to install them at the start of every session.
+
+### Create a Dockerfile
+
+Start `FROM` an existing sandbox template and layer your additions on top. Switch between `root` (for system packages) and `agent` (for user-level tools) as needed:
+
+```dockerfile
+FROM docker/sandbox-templates:claude-code
+
+USER root
+RUN apt-get update && apt-get install -y protobuf-compiler
+
+USER agent
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+```
+
+### Build and push
+
+```bash
+docker build -t my-org/my-template:v1 --push .
+```
+
+Push to any registry Docker can pull from — Docker Hub, GHCR, ECR, etc.
+
+### Use your template
+
+```bash
+sbx run --template docker.io/my-org/my-template:v1 claude
+```
+
+The image is pulled and cached locally on first use. Subsequent sandbox starts reuse the cached image. If you update the image and want the new version, run `sbx reset` to clear the cache, or use a new tag.
+
+### Available base images
+
+| Template | Includes |
+|----------|----------|
+| `docker/sandbox-templates:claude-code` | Claude Code, standard toolchain |
+| `docker/sandbox-templates:claude-code-docker` | Claude Code + Docker Engine (required for Docker Compose on Windows) |
+| `docker/sandbox-templates:codex` | OpenAI Codex |
+| `docker/sandbox-templates:gemini` | Gemini CLI |
+| `docker/sandbox-templates:shell` | Bare Bash — no agent pre-installed |
+
+All base images include Ubuntu, Git, GitHub CLI, Node.js, Go, Python 3, and common package managers.
 
 ---
 
@@ -869,7 +958,7 @@ sbx run quickstart                       # reconnect to an existing sandbox
 sbx run quickstart --branch=my-feature   # branch mode — Claude works on own worktree
 sbx run quickstart --branch=my-feature \
   -- "$(cat p.txt)"                      # pass a prompt from a file (quotes required)
-sbx create --name=quickstart claude      # create without attaching
+sbx create [AGENT] [WORKSPACE]           # create without attaching
 sbx ls                                   # list sandboxes
 sbx stop quickstart                      # pause (preserves installed packages)
 sbx rm quickstart                        # delete sandbox + VM + worktrees
@@ -966,6 +1055,19 @@ sbx login
 - Published ports don't survive a restart — re-run `sbx ports` after `sbx stop`/`sbx run`
 - Check the sandbox is still running: `sbx ls`
 - Make sure you're running `sbx ports` from a host terminal, not from inside the sandbox session
+
+---
+
+### Sandbox clock is drifting (requests failing with timestamp errors)
+
+Putting your laptop to sleep and waking it can cause the sandbox VM's clock to drift from the host. This shows up as expired token errors, TLS failures, or other time-sensitive request failures.
+
+Fix it by stopping and restarting the sandbox:
+
+```bash
+sbx stop quickstart
+sbx run quickstart
+```
 
 ---
 
