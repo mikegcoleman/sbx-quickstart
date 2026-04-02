@@ -5,21 +5,23 @@
 ---
 
 ## What you'll need
+
 - A paid Claude subscription
-- A Github auth token with permissions to push and pull against the repo you will clone
-- Windows 11 or MacOS on Apple Silicon
+- A GitHub account with a token that has permissions to push and pull
+- macOS on Apple Silicon or Windows 11
 
 ## What you'll learn
 
 By the end of this guide you'll be able to:
 
-- Install and configure the `sbx` CLI on macOS or Windows
-- Run Claude Code autonomously inside an isolated microVM sandbox
+- Install and configure the `sbx` CLI
+- Run Claude autonomously inside an isolated microVM sandbox
+- Store credentials securely and have them injected automatically
 - Use branch mode to let Claude work on its own Git branch without touching your working tree
+- Run multiple agents in parallel on the same repo
 - Forward live ports from a sandbox to your browser
 - Manage network policies so Claude can only reach what you allow
-- Mount multiple workspaces and run multi-agent workflows
-- Handle credentials securely without passing raw API keys into the sandbox
+- Mount multiple workspaces and debug inside a running sandbox
 
 The guide uses **DevBoard** — a full-stack Next.js + FastAPI issue tracker included
 alongside this file (`backend/`, `frontend/`, `docker-compose.yml`). DevBoard has
@@ -33,22 +35,20 @@ of intentional bugs and unfinished features that make ideal exercises for Claude
 1. [How Docker Sandboxes work](#1-how-docker-sandboxes-work)
 2. [Fork and clone this repo](#2-fork-and-clone-this-repo)
 3. [Installation](#3-installation)
-4. [Authentication](#4-authentication)
-5. [Orient yourself: first sandbox run](#5-orient-yourself-first-sandbox-run)
-6. [The interactive TUI dashboard](#6-the-interactive-tui-dashboard)
-7. [Branch mode: safe parallel development](#7-branch-mode-safe-parallel-development)
-8. [Exercise: run the test suite](#8-exercise-run-the-test-suite)
-9. [Exercise: bug hunt (pagination + updated_at)](#9-exercise-bug-hunt)
+4. [Secrets and credentials](#4-secrets-and-credentials)
+5. [Create your sandbox](#5-create-your-sandbox)
+6. [Orient yourself](#6-orient-yourself)
+7. [The interactive TUI dashboard](#7-the-interactive-tui-dashboard)
+8. [Run tests and fix bugs](#8-run-tests-and-fix-bugs)
+9. [Branch mode and parallel agents](#9-branch-mode-and-parallel-agents)
 10. [Docker Compose inside the sandbox](#10-docker-compose-inside-the-sandbox)
 11. [Port forwarding with `sbx ports`](#11-port-forwarding-with-sbx-ports)
-12. [Exercise: implement issue search](#12-exercise-implement-issue-search)
-13. [Network policies](#13-network-policies)
-14. [Multiple workspaces](#14-multiple-workspaces)
-15. [Debugging with `sbx exec`](#15-debugging-with-sbx-exec)
-16. [Production patterns](#16-production-patterns)
-17. [Appendix A: prompt library](#appendix-a-prompt-library)
-18. [Appendix B: CLI quick reference](#appendix-b-cli-quick-reference)
-19. [Appendix C: troubleshooting](#appendix-c-troubleshooting)
+12. [Network policies](#12-network-policies)
+13. [Multiple workspaces](#13-multiple-workspaces)
+14. [Debugging with `sbx exec`](#14-debugging-with-sbx-exec)
+15. [Appendix A: Prompt library](#appendix-a-prompt-library)
+16. [Appendix B: CLI quick reference](#appendix-b-cli-quick-reference)
+17. [Appendix C: Troubleshooting](#appendix-c-troubleshooting)
 
 ---
 
@@ -59,8 +59,8 @@ When you run `sbx run claude`, Docker Sandboxes:
 1. Spins up a **lightweight microVM** — its own Linux kernel, not just a container namespace.
 2. Gives the VM a **private Docker daemon**, so Claude can run `docker build` or `docker compose up` without touching your host Docker.
 3. **Mounts your workspace directory** at its exact host path inside the VM. File changes are instant in both directions — no copy-on-write delay.
-4. Routes all HTTP/HTTPS traffic from the VM through a **host-side proxy** that enforces your network policy and injects API credentials. Claude never sees raw API keys.
-5. Starts Claude Code with `--dangerously-skip-permissions` so it can act autonomously without prompting you on every file change.
+4. Routes all HTTP/HTTPS traffic from the VM through a **host-side proxy** that enforces your network policy and injects API credentials. Claude never sees raw credentials.
+5. Starts Claude with `--dangerously-skip-permissions` so it can act autonomously without prompting you on every file change.
 
 The result: Claude can build images, install packages, run tests, and edit your code —
 and none of that can escape the VM to touch your host system, your other containers,
@@ -136,7 +136,7 @@ Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
 
 Restart your machine when prompted.
 
-**Step 2** — Download and install the `sbx` CLI from the Docker website, or via `winget`:
+**Step 2** — Install the `sbx` CLI via `winget`:
 
 ```powershell
 winget install Docker.Sbx
@@ -159,21 +159,58 @@ sbx version
 > (required for the Docker Compose exercise), pass `--template`:
 >
 > ```powershell
-> sbx run --template docker.io/docker/sandbox-templates:claude-code-docker claude
+> sbx run --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
 > ```
 
 ---
 
-## 4. Initial Setup
+## 4. Secrets and credentials
 
-Making sure you're in the ~/sbx-quickstart directory (or wherever you cloned this repo) start your sandbox. The below command creates a sandbox running claude and mounts the current directory as the workspace. 
+`sbx` has a built-in secrets manager that stores credentials in your OS keychain —
+never in plain text on disk or inside the VM. When Claude makes an outbound request
+that needs authentication, the host-side proxy intercepts it and injects the credential
+automatically. Claude can make authenticated API calls but can never read, log, or
+exfiltrate the raw credential.
+
+Store your GitHub token **now**, before creating a sandbox. The `-g` flag makes it
+global — available to all sandboxes you create:
 
 ```bash
-sbx run claude
+echo "$(gh auth token)" | sbx secret set -g github
 ```
 
-On your **very first run** (and after `sbx policy reset`) the daemon prompts you to
-choose a network policy:
+> **Important**: global secrets must be set before a sandbox is created. They are
+> injected at creation time and cannot be added retroactively to a running sandbox.
+> Sandbox-scoped secrets (without `-g`) can be added at any time and override the
+> global value for that sandbox.
+
+### Supported services
+
+| Service     | Environment variable(s)                       | API domain(s)                       |
+|-------------|-----------------------------------------------|-------------------------------------|
+| `anthropic` | `ANTHROPIC_API_KEY`                           | `api.anthropic.com`                 |
+| `openai`    | `OPENAI_API_KEY`                              | `api.openai.com`                    |
+| `github`    | `GH_TOKEN`, `GITHUB_TOKEN`                    | `api.github.com`, `github.com`      |
+| `google`    | `GEMINI_API_KEY`, `GOOGLE_API_KEY`            | `generativelanguage.googleapis.com` |
+| `groq`      | `GROQ_API_KEY`                                | `api.groq.com`                      |
+| `aws`       | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`  | AWS Bedrock endpoints               |
+
+For services not in this list, you can write values to `/etc/sandbox-persistent.sh`
+inside the sandbox via `sbx exec`. Unlike `sbx secret`, this stores the value inside
+the VM where the agent can read it directly — use only for tokens where proxy injection
+isn't needed.
+
+---
+
+## 5. Create your sandbox
+
+From `~/sbx-quickstart`, launch your sandbox:
+
+```bash
+sbx run --name=quickstart claude
+```
+
+On your **very first run** the daemon prompts you to choose a network policy:
 
 ```
 Choose a default network policy:
@@ -192,21 +229,26 @@ hosts later with `sbx policy allow`.
 The first run pulls the agent image (~1–2 minutes). Subsequent starts reuse the cache
 and are nearly instant.
 
-Once the sandbox starts the Claude Code UI loads. In order to use Claude Code you'll need to login. 
+### Log in to Claude
 
-```bash
+Once the sandbox starts, the Claude interface loads. Authenticate with:
+
+```
 /login
 ```
 
-Choose whichever option you prefer
+Choose your preferred login option.
 
-**Note**: If you choose Option 1, the `c for copy` functionality does not work, and the sandbox will not automatically open a web browser. You will need to copy the login URL and follow the OAuth flow. Take the code that Claude returns, and paste it into the sandbox to authenticate. You will only need to do this once. 
+> **Note**: If you choose Option 1, the `c for copy` shortcut does not work and the
+> sandbox will not automatically open a browser. Copy the login URL manually, complete
+> the OAuth flow, and paste the returned code back into the sandbox. You only need to
+> do this once.
 
 ---
 
-## 5. Orient yourself: first sandbox run
+## 6. Orient yourself
 
-Once Claude authenticates, give it this orientation prompt:
+Once Claude is authenticated, give it this orientation prompt:
 
 ```
 Explore this codebase and give me:
@@ -216,282 +258,76 @@ Explore this codebase and give me:
 4. What the test suite covers
 ```
 
-Claude will read the source files, parse the README, check the requirements, and
-report back. Because the workspace is mounted directly into the VM, Claude sees your
-actual files — including any changes you make on the host while it's running.
+Claude will read the source files, check the requirements, and report back. Because the
+workspace is mounted directly into the VM, Claude sees your actual files — including
+any changes you make on the host while it's running.
 
-### The detach/reattach pattern
+### Controlling the session
 
-`sbx run` is interactive — it occupies your terminal as a live agent session. Any time
-you need to run a host-side command (`sbx ls`, `sbx ports`, `git diff`, etc.) you have
-a few options:
+`sbx run` is interactive — it occupies your terminal as a live agent session.
 
-- **Open a new terminal tab** and leave Claude running in the original tab.
-- **Detach** by pressing `Ctrl-C` twice you will shut claude down
-- **!** In claude any commande preceded by a `!` is interpreted as a Bash command. For instance `!ls` will list the current directory contents. 
+- Press **`Ctrl-C` twice** to exit the session and drop back to your host terminal. The sandbox keeps running.
+- Type **`!`** before any command inside Claude to run it as a shell command without leaving the session — e.g. `!ls` or `!git status`.
 
-For this guide use `Ctrl-C` twice to break out of the agent and drop back to the terminal. 
+Reconnect to your sandbox at any time:
 
-Do that now. 
+```bash
+sbx run --name=quickstart claude
+```
 
-**Check what's running** (new terminal or after detaching):
+Check what's running from any terminal:
 
 ```bash
 sbx ls
 ```
 
-```
-SANDBOX                 AGENT    STATUS    PORTS   WORKSPACE
-claude-sbx-quickstart   claude   running           /Users/mikecoleman/sandboxes/sbx-quickstart
-```
+[output placeholder]
 
 ---
 
-## 6. The interactive TUI dashboard
+## 7. The interactive TUI dashboard
 
-Simple executing `sbx` with no parameters brings up the TUI. 
+Running `sbx` with no arguments opens the TUI. Run it in a new terminal tab while
+Claude is running in another.
 
 ```bash
 sbx
 ```
 
-The dashboard shows:
+The dashboard shows all sandboxes as cards with live CPU and memory usage.
 
-- All sandboxes as cards with live **CPU and memory usage**
-- Keyboard shortcuts for common actions
-
-From the dashboard you can:
-
-| Key      | Action                                               |
-|----------|------------------------------------------------------|
-| `c`      | Create a new sandbox                                 |
-| `s`      | Start or stop the selected sandbox                   |
-| `Enter`  | Attach to the agent session (same as `sbx run`)      |
-| `x`      | Open a shell inside the sandbox (`sbx exec`)         |
-| `r`      | Remove the selected sandbox                          |
-| `Tab`    | Switch between the Sandboxes panel and Network panel |
-| `?`      | Show all shortcuts                                   |
+| Key     | Action                                               |
+|---------|------------------------------------------------------|
+| `c`     | Create a new sandbox                                 |
+| `s`     | Start or stop the selected sandbox                   |
+| `Enter` | Attach to the agent session (same as `sbx run`)      |
+| `x`     | Open a shell inside the sandbox (`sbx exec`)         |
+| `r`     | Remove the selected sandbox                          |
+| `Tab`   | Switch between the Sandboxes panel and Network panel |
+| `?`     | Show all shortcuts                                   |
 
 The **Network panel** (press `Tab`) shows a live log of every outbound connection the
-sandbox makes — which hosts were reached, which were blocked. Using the arrows you can move up and down the log and either allow or block these hosts. This is the fastest way to debug "why can't Claude install this package?"
+sandbox makes — which hosts were reached, which were blocked. Use the arrow keys to
+navigate the log and allow or block hosts directly. This is the fastest way to debug
+"why can't Claude install this package?"
 
 Press `Ctrl-C` to exit the dashboard without stopping any sandboxes.
 
 ---
 
-## 7. Branch mode: safe parallel development
+## 8. Run tests and fix bugs
 
-By default, `sbx run` uses **direct mode** — Claude edits your working tree in place.
-That's fine for quick tasks, but gets messy when you want to review changes before they
-land, or run multiple agents at the same time.
+This exercise shows Claude working in **direct mode** — the default, where edits land
+in your working tree. You'll have Claude run the test suite, identify failures, fix the
+bugs, and confirm everything passes.
 
-**Branch mode** gives Claude its own Git worktree and branch, isolated from your main
-working tree. You keep working normally; Claude works on its branch; you review the
-diff and merge when you're happy.
-
-### Before you start
-
-Branch mode requires a Git repo with a GitHub remote. Since you already forked and cloned the repo in step 2, you're all set. Just make sure your fork is the configured remote:
+Reconnect to your sandbox:
 
 ```bash
-git remote -v
+sbx run --name=quickstart claude
 ```
 
-You should see your fork listed as `origin`. Also store your GitHub token so Claude can push and open PRs from inside the sandbox:
-
-```bash
-echo "$(gh auth token)" | sbx secret set -g github && sbx ls
-```
-
-**How sbx secrets work**: `sbx` has a built-in secrets manager that stores credentials in your OS keychain — never in plain text on disk or inside the VM. When Claude needs a credential (for example, to push a branch to GitHub), the host-side proxy intercepts the outbound request and injects the token automatically. Claude can make authenticated API calls but can never read, log, or exfiltrate the raw credential. The `-g` flag makes a secret global, meaning it's available to all sandboxes you create, not just the current one.
-
-### Start a sandbox in branch mode
-
-```bash
-sbx run claude  --branch claude/fix-bugs
-```
-
-`sbx` creates a worktree directory for the current sandbox `.sbx/` in your workspace root. All of Claude's changes land
-in that worktree, not in your main working tree.
-
-**Give Claude a concrete task immediately** — branch mode is most useful when the agent
-has a clear goal to work toward autonomously:
-
-```
-The test suite has failing tests. Do the following without stopping:
-
-1. Install backend dependencies: pip install -r backend/requirements.txt
-2. Run the test suite: cd backend && pytest tests/ -v
-3. Fix the pagination bug in backend/app/routers/issues.py
-   (the skip calculation is wrong — look at list_issues())
-4. Fix the updated_at bug in backend/app/models.py
-   (the onupdate parameter is missing from both updated_at columns)
-5. Re-run the full test suite and confirm all tests pass
-6. Commit the fixes with a descriptive message
-```
-
-### Monitor progress without interrupting Claude
-
-While Claude works, open a new terminal tab to watch the changes accumulate:
-
-```bash
-# Confirm the sandbox is running
-sbx ls
-
-# See the worktree Claude is working in
-git worktree list
-
-# Watch Claude's changes in real time
-git diff main..claude/fix-bugs
-```
-
-You don't need to touch the session — Claude will work through all five steps
-autonomously and report back when done.
-
-### Reattach to review or follow up
-
-Once you're ready to check in, reattach to the session:
-
-```bash
-sbx run devboard-bugs
-```
-
-You'll see the full conversation history. If you want Claude to do more before you
-review, add a follow-up prompt:
-
-```
-Good. Now also add a brief comment above each fix explaining
-the root cause, so the PR description is self-documenting.
-```
-
-### Review the diff and open a PR
-
-When you're satisfied, detach (`Ctrl-C`) and review everything Claude changed:
-
-```bash
-# Full diff of all changes
-git diff main..claude/fix-bugs
-
-# Push the branch to GitHub
-cd .sbx/devboard-bugs-worktrees/claude/fix-bugs
-git push -u origin claude/fix-bugs
-
-# Open a PR
-gh pr create \
-  --title "Fix: pagination offset and missing onupdate" \
-  --body "Fixes off-by-one error in list_issues() and adds missing onupdate= to models."
-```
-
-### Clean up
-
-```bash
-sbx rm devboard-bugs
-# Removes the VM, worktree, and local branch automatically
-```
-
-### Running agents in parallel
-
-Because each branch-mode sandbox works in its own worktree, you can run multiple agents
-on the same repo at the same time with no conflicts. This is where branch mode really
-shines — two agents, two features, zero interference.
-
-DevBoard has two unimplemented features that make ideal parallel tasks:
-
-- **Search** — `GET /issues/search?q=` returns 501; the query logic needs to be written
-- **Notifications** — `send_status_change_notification()` is a no-op stub; it needs to actually send emails on issue status changes
-
-Each agent gets its own prompt file. This lets you version-control your prompts alongside
-your code and pass them in cleanly on the command line:
-
-**`prompts/implement-search.txt`**
-
-```
-Implement the issue search endpoint in backend/app/routers/issues.py.
-
-The endpoint is at GET /issues/search?q= and currently returns 501.
-It should:
-- Accept a query string parameter `q`
-- Search issues by title and description using case-insensitive matching
-- Return the same schema as the list_issues endpoint
-- Pass the existing tests in backend/tests/test_issues.py
-
-Steps:
-1. Install dependencies: pip install -r backend/requirements.txt
-2. Read the existing list_issues() implementation for reference
-3. Implement the search using SQLAlchemy ilike: Issue.title.ilike(f"%{q}%") OR Issue.description.ilike(f"%{q}%")
-4. Run the test suite and confirm search tests pass
-5. Commit with a descriptive message
-```
-
-**`prompts/implement-notifications.txt`**
-
-```
-Implement email notifications in backend/app/services/notifications.py.
-
-The function send_status_change_notification() is currently a no-op stub.
-It should:
-- Send an email to the issue reporter when an issue's status changes
-- Use the smtplib standard library (no new dependencies)
-- Read SMTP config from environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-- Gracefully handle missing config (log a warning and return instead of crashing)
-- Include the issue title, old status, new status, and a link in the email body
-
-Steps:
-1. Read the existing stub and the update_issue() caller in routers/issues.py
-2. Implement the function
-3. Add a unit test that mocks smtplib.SMTP and confirms send_message is called
-4. Run the test suite and confirm all tests pass
-5. Commit with a descriptive message
-```
-
-Launch both agents simultaneously each **from it's own terminal terminal session**:
-
-In terminal one: 
-
-```bash
-sbx run --name add-search claude . --branch add-search -- "$(cat prompts/implement-search.txt)"
-```
-
-In terminal 2: 
-
-```bash
-sbx run --name add-notif  claude . --branch add-notif  -- "$(cat prompts/implement-notifications.txt)"
-```
-
-
-Each agent spins up in its own worktree, reads its prompt, and gets to work independently.
-Watch them both **from a third terminal**:
-
-```bash
-sbx ls
-# agent-search          running  0m42s
-# agent-notifications   running  0m38s
-```
-
-When both are done, review each branch and open PRs:
-
-```bash
-git diff main..claude/add-search
-git diff main..claude/add-notif
-
-gh pr create --head add-search --title "Implement issue search"
-gh pr create --head add-notif --title "Implement status change notifications"
-```
-
----
-
-## 8. Exercise: run the test suite
-
-This exercise gets Claude to set up the Python environment and run the backend tests
-autonomously — a common first task when landing on an unfamiliar codebase.
-
-**Start a named sandbox:**
-
-```bash
-sbx run claude --name devboard-tests --branch auto
-```
-
-**Give Claude this prompt:**
+**Step 1 — Run the tests:**
 
 ```
 Set up the Python environment for the FastAPI backend and run the test suite.
@@ -503,34 +339,9 @@ Report:
 Use pytest with verbose output: cd backend && pytest tests/ -v
 ```
 
-Claude will:
-1. `pip install -r backend/requirements.txt`
-2. `cd backend && pytest tests/ -v`
-3. Report the results — including the failures planted in the codebase
+[output placeholder]
 
-Installed packages **persist** across agent restarts for this sandbox. If you stop and
-re-run `sbx run devboard-tests`, you won't need to `pip install` again.
-
-**Expected output** (before any fixes):
-
-```
-PASSED  tests/test_auth.py::test_register_new_user
-PASSED  tests/test_auth.py::test_login_success
-...
-FAILED  tests/test_issues.py::test_pagination_first_page_returns_results
-FAILED  tests/test_issues.py::test_pagination_second_page
-FAILED  tests/test_issues.py::test_updated_at_changes_on_update
-PASSED  tests/test_issues.py::test_search_returns_501_until_implemented
-```
-
----
-
-## 9. Exercise: bug hunt
-
-With the failing tests identified, ask Claude to fix them. Continue in the same session
-you opened in Section 7:
-
-**Prompt:**
+**Step 2 — Fix the bugs:**
 
 ```
 Three tests are failing. Fix each bug:
@@ -545,39 +356,120 @@ For each fix:
 - Re-run the specific test to confirm it passes before moving on
 ```
 
-### What Claude should find
+While Claude works, open the files in your editor on the host. You'll see Claude's
+edits appear in real time — the workspace mount is bidirectional and instant. No copy
+step, no polling delay.
 
-**Bug 1 & 2 — Pagination offset** (`backend/app/routers/issues.py`):
-
-```python
-# Buggy
-skip = page * page_size
-
-# Fixed
-skip = (page - 1) * page_size
-```
-
-**Bug 3 — updated_at never refreshes** (`backend/app/models.py`):
-
-```python
-# Buggy — onupdate is missing
-updated_at = Column(DateTime, default=datetime.utcnow)
-
-# Fixed
-updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-```
-
-### Watch file sync in action
-
-While Claude is working, open the files in your editor on the **host**. You'll see
-Claude's edits appear in real time as it writes them — the workspace mount is
-bidirectional and instant. No copy step, no polling delay.
-
-**After the fixes, run the full suite:**
+**Step 3 — Confirm everything passes:**
 
 ```
-# Prompt Claude:
 Run the full test suite and confirm all tests pass (or are intentionally skipped).
+```
+
+Installed packages **persist** across agent restarts for this sandbox. If you stop
+and reconnect to `quickstart`, you won't need to `pip install` again.
+
+---
+
+## 9. Branch mode and parallel agents
+
+### Direct mode vs. branch mode
+
+Everything in section 8 ran in **direct mode** — Claude edited your working tree and
+you could see the changes immediately. That's great for interactive work.
+
+**Branch mode** gives Claude its own Git worktree and branch, isolated from your main
+working tree. You keep working normally; Claude works on its branch; you review the
+diff and merge when you're happy. Use it when you want a clean diff to review before
+anything lands, or when running multiple agents simultaneously.
+
+### Single branch: working in isolation
+
+Add `--branch` to put Claude on its own worktree. This works on your existing
+`quickstart` sandbox — no new sandbox is created:
+
+```bash
+sbx run --name=quickstart claude --branch=fix-bugs
+```
+
+`sbx` creates a worktree under `.sbx/` in your repo root. Give Claude a task:
+
+```
+The test suite has failing tests. Fix the pagination bug in backend/app/routers/issues.py
+and the updated_at bug in backend/app/models.py. Commit the fixes with a descriptive message.
+```
+
+Monitor from a second terminal without interrupting the session:
+
+```bash
+git worktree list
+git diff main..fix-bugs
+```
+
+When you're ready to review and open a PR:
+
+```bash
+git diff main..fix-bugs
+
+gh pr create \
+  --head fix-bugs \
+  --title "Fix: pagination offset and missing onupdate" \
+  --body "Fixes off-by-one error in list_issues() and adds missing onupdate= to models."
+```
+
+Clean up when done:
+
+```bash
+sbx rm quickstart
+# Removes the VM, worktree, and local branch automatically
+```
+
+### Parallel agents
+
+Because each branch-mode run creates its own worktree, you can run multiple agents
+simultaneously with no conflicts. The key is giving each agent its task up front via
+a prompt file — this lets both fire off without any interactive back-and-forth.
+
+DevBoard has two unimplemented features that make ideal parallel tasks:
+
+- **Search** — `GET /issues/search?q=` returns 501; the query logic needs to be written
+- **Notifications** — `send_status_change_notification()` is a no-op stub; it needs to actually send emails on issue status changes
+
+The `prompts/` directory in this repo includes a ready-made prompt file for each.
+Launch both agents, each in its own terminal:
+
+**Terminal 1:**
+
+```bash
+sbx run --name=add-search claude --branch=add-search -- "$(cat prompts/implement-search.txt)"
+```
+
+**Terminal 2:**
+
+```bash
+sbx run --name=add-notif claude --branch=add-notif -- "$(cat prompts/implement-notifications.txt)"
+```
+
+> **Note**: the `"$(cat ...)"` must be quoted or the prompt won't be passed correctly
+> to the sandbox.
+
+Each agent spins up its own sandbox and worktree, reads its prompt, and gets to work
+independently. Watch them from a third terminal:
+
+```bash
+sbx ls
+```
+
+[output placeholder]
+
+When both are done, review each branch and open PRs:
+
+```bash
+git diff main..add-search
+git diff main..add-notif
+
+gh pr create --head add-search --title "Implement issue search"
+gh pr create --head add-notif --title "Implement status change notifications"
 ```
 
 ---
@@ -587,10 +479,10 @@ Run the full test suite and confirm all tests pass (or are intentionally skipped
 Each sandbox has its own private Docker daemon. Claude can run `docker compose up`,
 build images, and start containers — none of which appear in your host's `docker ps`.
 
-**Start (or reconnect to) a named sandbox:**
+Reconnect to your sandbox:
 
 ```bash
-sbx run claude --name devboard-compose
+sbx run --name=quickstart claude
 ```
 
 **Give Claude this prompt:**
@@ -607,16 +499,14 @@ Use the API docs at http://localhost:8000/docs if helpful.
 Make sure all servers bind to 0.0.0.0 so I can reach them via port forwarding.
 ```
 
-Claude will:
-1. `docker compose up --build -d`
-2. Wait for the `db` healthcheck to pass
-3. Hit the API endpoints with `curl` or `httpx`
+Claude will `docker compose up --build -d`, wait for the `db` healthcheck to pass,
+then hit the API endpoints with `curl` or `httpx`.
 
 > **Windows users**: remember to pass `--template docker.io/docker/sandbox-templates:claude-code-docker`
-> when creating this sandbox if you want Docker inside the VM.
+> when creating the sandbox if you need Docker inside the VM.
 
-The containers Claude starts live entirely inside the sandbox. When you `sbx rm`
-the sandbox, all images, containers, and Postgres data are deleted automatically.
+The containers Claude starts live entirely inside the sandbox. When you `sbx rm` the
+sandbox, all images, containers, and Postgres data are deleted automatically.
 
 ---
 
@@ -625,114 +515,62 @@ the sandbox, all images, containers, and Postgres data are deleted automatically
 Sandboxes are network-isolated — your browser can't reach a server inside one by
 default. `sbx ports` punches a hole from a host port to a sandbox port.
 
-> **Terminal note**: `sbx ports` is a host-side command. Run it in a **new terminal
-> tab** while Claude is running, or detach first (`Ctrl-C`) then run it.
+> **Terminal note**: `sbx ports` is a host-side command. Run it in a new terminal tab
+> while Claude is running, or exit the session first (`Ctrl-C`).
 
 ### Forward the API
 
-With the Docker Compose stack running from the previous exercise:
+With the Docker Compose stack running from the previous section:
 
 ```bash
-sbx ports devboard-compose --publish 8080:8000
+sbx ports quickstart --publish 8080:8000
 ```
 
-Now open your browser to `http://localhost:8080/docs` — that's the live Swagger UI
-running inside the sandbox.
+Open `http://localhost:8080/docs` — that's the live Swagger UI running inside the sandbox.
 
 ### Forward the frontend
 
 ```bash
-sbx ports devboard-compose --publish 3001:3000
+sbx ports quickstart --publish 3001:3000
 open http://localhost:3001
 ```
 
 ### Check active ports
 
 ```bash
-sbx ls
-# SANDBOX             AGENT   STATUS   PORTS                                        WORKSPACE
-# devboard-compose    claude  running  127.0.0.1:8080->8000, 127.0.0.1:3001->3000  /…/devboard-guide
-
-sbx ports devboard-compose
+sbx ports quickstart
 ```
+
+[output placeholder]
 
 ### Stop forwarding
 
 ```bash
-sbx ports devboard-compose --unpublish 8080:8000
+sbx ports quickstart --unpublish 8080:8000
 ```
 
 > **Gotcha**: services inside the sandbox must bind to `0.0.0.0`, not `127.0.0.1`.
-> Most dev servers default to `127.0.0.1`. That's why the Section 9 prompt explicitly
-> asks Claude to bind to `0.0.0.0`.
+> Most dev servers default to `127.0.0.1` — that's why the prompt in section 10
+> explicitly asks Claude to bind to `0.0.0.0`.
 
-> **Gotcha**: published ports don't survive a sandbox stop/restart. Re-run
-> `sbx ports` after restarting.
-
----
-
-## 12. Exercise: implement issue search
-
-The `GET /projects/{project_id}/issues/search` endpoint exists but returns `501`.
-The TODO is well-commented. This exercise has Claude implement it end-to-end.
-
-**Prompt (in any running sandbox):**
-
-```
-Implement the issue search endpoint in backend/app/routers/issues.py.
-
-Requirements:
-- Accept a `q` query parameter (case-insensitive)
-- Match issues where the title OR description contains `q`
-- Return results ordered by updated_at descending
-- Write or update tests in tests/test_issues.py to cover:
-  - A search that returns one match
-  - A search with no matches (should return empty list, not 404)
-  - A search that matches on description (not just title)
-- Run the full test suite when done and confirm everything passes
-```
-
-### What to expect
-
-Claude should use SQLAlchemy's `ilike` for the case-insensitive match and the `or_`
-combinator. A correct implementation looks roughly like:
-
-```python
-from sqlalchemy import or_
-
-results = (
-    db.query(models.Issue)
-    .filter(
-        models.Issue.project_id == project_id,
-        or_(
-            models.Issue.title.ilike(f"%{q}%"),
-            models.Issue.description.ilike(f"%{q}%"),
-        ),
-    )
-    .order_by(models.Issue.updated_at.desc())
-    .all()
-)
-return results
-```
-
-Once implemented, the frontend search bar (in `frontend/src/app/projects/[id]/page.tsx`)
-will work automatically — type a query and press Enter.
+> **Gotcha**: published ports don't survive a sandbox stop/restart. Re-run `sbx ports`
+> after restarting.
 
 ---
 
-## 13. Network policies
+## 12. Network policies
 
 Every sandbox routes outbound HTTP/HTTPS through a host-side proxy that enforces
 access rules you define. There are three built-in postures:
 
-| Policy      | Description                                                      |
-|-------------|------------------------------------------------------------------|
-| Open        | All traffic allowed — no restrictions                            |
+| Policy      | Description                                                                          |
+|-------------|--------------------------------------------------------------------------------------|
+| Open        | All traffic allowed — no restrictions                                                |
 | Balanced    | Default deny, with a broad allow-list covering AI APIs, npm, pip, GitHub, registries |
-| Locked Down | Everything blocked; you explicitly allow what you need           |
+| Locked Down | Everything blocked; you explicitly allow what you need                               |
 
 > **Terminal note**: all `sbx policy` commands run on the **host**, not inside a
-> sandbox session. Open a new terminal tab or detach first.
+> sandbox session.
 
 ### Inspect current rules
 
@@ -740,27 +578,15 @@ access rules you define. There are three built-in postures:
 sbx policy ls
 ```
 
+[output placeholder]
+
 ### See what the sandbox is actually hitting
 
 ```bash
 sbx policy log
 ```
 
-Example output:
-```
-Allowed requests:
-SANDBOX            TYPE     HOST                    PROXY        LAST SEEN   COUNT
-devboard-compose   network  api.anthropic.com       forward      10:15:23    42
-devboard-compose   network  registry.npmjs.org      transparent  10:15:20    18
-devboard-compose   network  files.pythonhosted.org  transparent  10:15:18    7
-
-Blocked requests:
-SANDBOX            TYPE     HOST                    PROXY        LAST SEEN   COUNT
-devboard-compose   network  smtp.mailgun.org        transparent  10:16:01    1
-```
-
-The `PROXY` column matters: `forward` means credentials were injected (only for AI API
-calls); `transparent` means policy was enforced but no credential injection.
+[output placeholder]
 
 ### Allow additional hosts
 
@@ -783,7 +609,7 @@ sbx policy deny network ads.example.com
 
 ### Try "Locked Down" mode
 
-Reset to a fresh policy selection (host terminal):
+Reset to a fresh policy selection:
 
 ```bash
 sbx policy reset
@@ -809,28 +635,23 @@ sbx policy reset
 
 ---
 
-## 14. Multiple workspaces
+## 13. Multiple workspaces
 
 You can mount additional directories into a sandbox alongside the primary workspace.
-Useful patterns:
-
-- A shared `libs/` repo the agent can reference (read-only)
-- The `docs/` repo alongside the main `app/` repo
-- Frontend and backend as separate repos, both mounted
-
-### Mount two directories
+Useful patterns: a shared `libs/` repo the agent can reference, `docs/` alongside
+`app/`, or frontend and backend as separate repos both mounted at once.
 
 ```bash
-sbx run claude ~/sbx-quickstart/backend ~/sbx-quickstart/frontend:ro --name devboard-full
+sbx run --name=devboard-full claude ~/sbx-quickstart/backend ~/sbx-quickstart/frontend:ro
 ```
 
 - `~/sbx-quickstart/backend` — primary workspace (read/write); agent starts here
 - `~/sbx-quickstart/frontend:ro` — mounted read-only; agent can read but not write
 
-Both appear inside the sandbox at their **exact host paths**, so relative paths in
-error messages match what you see locally.
+Both appear inside the sandbox at their exact host paths, so relative paths in error
+messages match what you see locally.
 
-### Cross-repo coordination exercise
+### Cross-repo exercise
 
 With both workspaces mounted:
 
@@ -839,54 +660,39 @@ The frontend's api.ts sends search requests to GET /issues/search, but the
 backend currently returns 501 for that endpoint. (Assume you've already
 implemented the backend fix in a previous session.)
 
-Review the frontend search flow in the frontend/src directory and make sure the
-error handling is user-friendly when the endpoint isn't available yet.
+Review the frontend search flow in the frontend/src directory and make sure
+the error handling is user-friendly when the endpoint isn't available yet.
 The frontend is read-only — propose the change but don't apply it.
 ```
 
-This pattern is common in monorepo setups where you want Claude to understand
-the full picture but only write to specific parts.
+This pattern is common in monorepo setups where you want Claude to understand the full
+picture but only write to specific parts.
 
 ---
 
-## 15. Debugging with `sbx exec`
+## 14. Debugging with `sbx exec`
 
-`sbx exec` opens a shell (or runs a command) inside a running sandbox. It always
-runs in a **separate terminal** — it's a host command, not something you type inside
-the Claude session.
-
-Use it to:
-- Inspect the environment Claude is working in
-- Check Docker container status
-- Run a quick test or command manually
-- Install a tool the agent doesn't know it needs
-
-### Open an interactive shell
+`sbx exec` opens a shell (or runs a one-off command) inside a running sandbox. Always
+run it from a host terminal — it's not something you type inside the Claude session.
 
 ```bash
-# In a new terminal tab (or after detaching from Claude)
-sbx exec -it devboard-compose bash
+sbx exec -it quickstart bash
 ```
 
-You're now inside the sandbox VM. Try:
+From inside the sandbox you can inspect the environment Claude is working in:
 
 ```bash
-# What containers is Claude's Docker daemon running?
-docker ps
-
-# What packages are installed?
-pip list | grep fastapi
-
-# Is the API actually listening?
-curl -s http://localhost:8000/health | python3 -m json.tool
+docker ps                                          # what containers are running?
+pip list | grep fastapi                            # what's installed?
+curl -s http://localhost:8000/health | python3 -m json.tool   # is the API up?
 ```
 
-Type `exit` to leave the shell. The Claude session keeps running.
+Type `exit` to leave. The Claude session keeps running.
 
-### Run a one-off command without a shell
+### Run a one-off command without opening a shell
 
 ```bash
-sbx exec -d devboard-compose bash -c "cd /path/to/backend && pytest tests/ -v --tb=short"
+sbx exec -d quickstart bash -c "cd backend && pytest tests/ -v --tb=short"
 ```
 
 ### Set a persistent environment variable
@@ -895,160 +701,18 @@ Variables set inside the sandbox don't survive a restart. Write them to
 `/etc/sandbox-persistent.sh` to make them permanent for the sandbox's lifetime:
 
 ```bash
-sbx exec -d devboard-compose bash -c \
+sbx exec -d quickstart bash -c \
   "echo 'export SMTP_HOST=smtp.mailgun.org' >> /etc/sandbox-persistent.sh"
 ```
 
-The file is sourced on every login shell, so Claude (and you) will see the variable
-in subsequent sessions.
-
----
-
-## 16. Credentials deep-dive
-
-### Supported services
-
-The `sbx secret` command maps a service name to the environment variable(s) the proxy
-checks and the API domain(s) it authenticates:
-
-| Service    | Environment variable(s)                        | API domain(s)              |
-|------------|------------------------------------------------|----------------------------|
-| `anthropic`| `ANTHROPIC_API_KEY`                            | `api.anthropic.com`        |
-| `openai`   | `OPENAI_API_KEY`                               | `api.openai.com`           |
-| `github`   | `GH_TOKEN`, `GITHUB_TOKEN`                     | `api.github.com`, `github.com` |
-| `google`   | `GEMINI_API_KEY`, `GOOGLE_API_KEY`             | `generativelanguage.googleapis.com` |
-| `groq`     | `GROQ_API_KEY`                                 | `api.groq.com`             |
-| `aws`      | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`   | AWS Bedrock endpoints      |
-
-### Give Claude access to GitHub
-
-Useful for agents that open PRs or interact with issues:
-
-```bash
-echo "$(gh auth token)" | sbx secret set -g github
-```
-
-Claude can then use the `gh` CLI inside the sandbox.
-
-### Scope a secret to one sandbox
-
-```bash
-# Global — applies to all new sandboxes
-sbx secret set -g anthropic
-
-# Sandbox-scoped — takes effect immediately, even for a running sandbox
-sbx secret set my-sandbox anthropic
-```
-
-A sandbox-scoped secret overrides the global one if both are set.
-
-### Custom tokens (not in the supported service list)
-
-For services not listed above (e.g., a `BRAVE_API_KEY`), write the value to
-`/etc/sandbox-persistent.sh` inside the sandbox:
-
-```bash
-sbx exec -d my-sandbox bash -c \
-  "echo 'export BRAVE_API_KEY=your_key' >> /etc/sandbox-persistent.sh"
-```
-
-Note: unlike `sbx secret`, this stores the value inside the VM where the agent can
-read it directly. Only use this for tokens where proxy injection isn't needed.
-
----
-
-## 17. Production patterns
-
-### Always name your sandboxes
-
-Names make it easy to reconnect and avoid creating duplicates:
-
-```bash
-sbx run claude --name devboard-main
-# Later:
-sbx run devboard-main   # reconnects to existing sandbox
-```
-
-Without `--name`, sbx auto-names based on the workspace path. Running the same path
-again reconnects correctly, but explicit names are clearer.
-
-### Use branch mode for any autonomous work
-
-Before starting a long-running task:
-
-```bash
-sbx run claude --name feature-search --branch claude/issue-search
-```
-
-This gives you a clean diff to review, and a one-command rollback if the result isn't
-what you wanted:
-
-```bash
-git branch -D claude/issue-search
-sbx rm feature-search
-```
-
-### Create sandboxes without attaching
-
-Useful for pre-warming or scripting:
-
-```bash
-sbx create claude . --name devboard-ci
-# Later, attach when needed:
-sbx run devboard-ci
-```
-
-### Run multiple agents in parallel on the same repo
-
-```bash
-sbx run claude . --name agent-search --branch claude/search
-sbx run claude . --name agent-notifications --branch claude/notifications
-# Each works on its own branch — no conflicts
-```
-
-### Non-interactive environments (CI)
-
-Set the default policy before running any other command:
-
-```bash
-sbx policy set-default balanced
-sbx run claude --name ci-review -- "Review the diff in HEAD and report any issues"
-```
-
-### Clean up idle sandboxes
-
-```bash
-sbx ls
-sbx rm devboard-old
-sbx rm devboard-scratch
-```
-
-Sandboxes accumulate Docker image layers and VM disk. Remove ones you're done with.
-
-### Custom templates
-
-If you need a pre-configured environment (e.g., a specific Node version, pre-installed
-tools), build a custom image on top of the base:
-
-```dockerfile
-FROM docker/sandbox-templates:claude-code
-
-RUN apt-get update && apt-get install -y postgresql-client redis-tools
-RUN npm install -g tsx pnpm
-```
-
-Then pass `--template` when creating:
-
-```bash
-sbx run claude --template myorg/devboard-template:latest --name devboard-custom
-```
+The file is sourced on every login shell, so Claude will see the variable in
+subsequent sessions.
 
 ---
 
 ## Appendix A: Prompt library
 
-These prompts are designed to work well with Claude in a Docker Sandbox. Copy, adapt,
-and combine them for your own workflows.
+These prompts are designed to work well with Claude in a Docker Sandbox.
 
 ---
 
@@ -1168,51 +832,52 @@ Rules:
 
 ```bash
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
-sbx run claude                          # start (or reconnect to) a sandbox
-sbx run --name my-sb claude             # with an explicit name
-sbx run --branch my-feature claude      # branch mode — agent works on own branch
-sbx run --branch auto claude            # let sbx name the branch
-sbx create claude .                     # create without attaching
-sbx ls                                  # list sandboxes     
-sbx stop my-sb                          # pause (preserves installed packages)
-sbx rm my-sb                            # delete sandbox + VM + worktrees
+sbx run --name=quickstart claude         # create and attach to a named sandbox
+sbx run --name=quickstart claude         # reconnect to an existing sandbox
+sbx run --name=quickstart claude \
+  --branch=my-feature                    # branch mode — Claude works on own worktree
+sbx run --name=quickstart claude \
+  --branch=my-feature -- "$(cat p.txt)" # pass a prompt from a file (quotes required)
+sbx create --name=quickstart claude      # create without attaching
+sbx ls                                   # list sandboxes
+sbx stop quickstart                      # pause (preserves installed packages)
+sbx rm quickstart                        # delete sandbox + VM + worktrees
 
-# ── Attach, detach & shell ─────────────────────────────────────────────────────
-sbx run my-sb                           # reattach to agent session
-# Ctrl-C inside sbx run               → detach (agent keeps running)
-sbx exec -it my-sb bash                 # shell inside sandbox  [host terminal]
-sbx exec -d my-sb bash -c "pytest -v"  # one-off command        [host terminal]
+# ── Attach & shell ─────────────────────────────────────────────────────────────
+# Ctrl-C twice inside sbx run            → exit session (sandbox keeps running)
+sbx exec -it quickstart bash             # shell inside sandbox  [host terminal]
+sbx exec -d quickstart bash -c "cmd"    # one-off command        [host terminal]
 
 # ── Port forwarding ────────────────────────────────────────────────────────────
 # (all sbx ports commands run in a host terminal)
-sbx ports my-sb --publish 8080:8000    # host:8080 → sandbox:8000
-sbx ports my-sb --publish 3000         # OS picks host port
-sbx ports my-sb                        # show active forwarding rules
-sbx ports my-sb --unpublish 8080:8000  # stop forwarding
+sbx ports quickstart --publish 8080:8000   # host:8080 → sandbox:8000
+sbx ports quickstart --publish 3000        # OS picks host port
+sbx ports quickstart                       # show active forwarding rules
+sbx ports quickstart --unpublish 8080:8000 # stop forwarding
 
 # ── Network policies ───────────────────────────────────────────────────────────
 # (all sbx policy commands run in a host terminal)
 sbx policy ls                                       # list active rules
-sbx policy log                                      # show connection log (allowed + blocked)
-sbx policy log my-sb                                # filter by sandbox
+sbx policy log                                      # show connection log
+sbx policy log quickstart                           # filter by sandbox
 sbx policy allow network example.com                # allow a host
 sbx policy allow network "*.npm.org,*.pypi.org"     # allow multiple
 sbx policy deny network ads.example.com             # block a host
-sbx policy rm network --resource example.com         # remove a rule
-sbx policy reset                        # wipe all rules, reprompt for default policy
-sbx policy set-default balanced         # set default without interactive prompt (CI)
+sbx policy rm network --resource example.com        # remove a rule
+sbx policy reset                                    # wipe rules, reprompt for policy
+sbx policy set-default balanced                     # set default without prompt (CI)
 
 # ── Credentials ────────────────────────────────────────────────────────────────
-sbx secret set -g anthropic             # store Anthropic key globally
-sbx secret set my-sb openai             # scope to one sandbox
-sbx secret ls                           # list stored secrets
-sbx secret rm -g github                 # remove a secret
+sbx secret set -g github                 # store GitHub token globally
+sbx secret set quickstart anthropic      # scope to one sandbox
+sbx secret ls                            # list stored secrets
+sbx secret rm -g github                  # remove a secret
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────
-sbx                                     # open interactive TUI  [host terminal]
+sbx                                      # open interactive TUI  [host terminal]
 
 # ── Reset ──────────────────────────────────────────────────────────────────────
-sbx reset                               # stop all VMs, delete all sandbox data
+sbx reset                                # stop all VMs, delete all sandbox data
 ```
 
 ---
@@ -1221,7 +886,7 @@ sbx reset                               # stop all VMs, delete all sandbox data
 
 ### Agent can't install packages or reach an API
 
-The network policy is blocking the domain. In a host terminal, check what's blocked:
+The network policy is blocking the domain. Check what's blocked:
 
 ```bash
 sbx policy log
@@ -1233,7 +898,7 @@ Then allow the domains you need:
 sbx policy allow network "*.npmjs.org,*.pypi.org,files.pythonhosted.org,github.com"
 ```
 
-Or allow everything:
+Or allow everything temporarily:
 
 ```bash
 sbx policy allow network "**"
@@ -1251,19 +916,18 @@ sbx login
 
 ---
 
-### API key errors / agent can't reach model provider
+### Agent can't reach the model provider
 
-1. Check that the secret is stored: `sbx secret ls`
-2. Check that `api.anthropic.com` is in the allow list: `sbx policy log`
-3. If you're in Locked Down mode, explicitly allow the API:
+1. Check that `api.anthropic.com` is in the allow list: `sbx policy log`
+2. If you're in Locked Down mode, explicitly allow it:
    ```bash
    sbx policy allow network api.anthropic.com
    ```
-4. If you stored a global secret while a sandbox was already running, recreate the
-   sandbox — global secrets only take effect at creation time:
+3. If you set a global secret while a sandbox was already running, the secret won't
+   be available — global secrets are injected at creation time. Recreate the sandbox:
    ```bash
-   sbx rm my-sb
-   sbx run claude --name my-sb
+   sbx rm quickstart
+   sbx run --name=quickstart claude
    ```
 
 ---
@@ -1282,44 +946,5 @@ sbx login
 Use the `-docker` template variant:
 
 ```bash
-sbx run --template docker.io/docker/sandbox-templates:claude-code-docker claude
+sbx run --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
 ```
-
----
-
-### `git worktree` is stale after `sbx rm`
-
-```bash
-git worktree remove .sbx/<sandbox-name>-worktrees/<branch-name>
-git branch -D <branch-name>
-```
-
----
-
-### Clock drift after sleep/wake
-
-The VM clock can fall behind after a laptop sleeps. Stop and restart the sandbox to
-re-sync:
-
-```bash
-sbx stop my-sb
-sbx run my-sb
-```
-
----
-
-### Nuclear option: wipe all sbx state
-
-```bash
-sbx reset   # stops all VMs, deletes all data
-
-# If sbx reset doesn't help:
-# macOS:
-rm -rf ~/Library/Application\ Support/com.docker.sandboxes/
-# Windows:
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\DockerSandboxes"
-```
-
----
-
-*For the latest docs, visit [docs.docker.com/ai/sandboxes](https://docs.docker.com/ai/sandboxes/).*
