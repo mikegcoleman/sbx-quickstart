@@ -581,7 +581,7 @@ Open `http://localhost:8080/docs` — that's the live Swagger UI running inside 
 sbx ports quickstart --publish 3001:3000
 ```
 
-Open http://localhost:3001 in your web browser
+Open `http://localhost:3001` in your web browser to see the Web front-end
 
 
 ### Check active ports
