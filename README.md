@@ -482,7 +482,7 @@ Each gets its own isolated Git worktree under `.sbx/quickstart-worktrees/`, so t
 read and write completely separate copies of the code with no conflicts. You'll still
 see only one entry in `sbx ls`.
 
-Each agent reads its prompt and gets to work independently. Watch them from a third terminal:
+Each agent reads its prompt and gets to work independently. You can watch each agent's progress in its own terminal.
 
 When both are done, review each branch and open PRs (make sure you are in `~/sbx-quickstart`:
 
