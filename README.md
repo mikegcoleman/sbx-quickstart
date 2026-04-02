@@ -658,13 +658,6 @@ sbx policy allow network "*.npmjs.org,*.pypi.org,files.pythonhosted.org"
 sbx policy deny network ads.example.com
 ```
 
-### Restore Balanced
-
-```bash
-sbx policy reset
-# Choose "Balanced" (option 2)
-```
-
 ### Reaching host services from inside the sandbox
 
 If you have a service running on your host machine (e.g. a local Ollama instance or a database), you can't reach it via `localhost` from inside the sandbox — that resolves to the VM itself. Use `host.docker.internal` instead, and add a policy rule if needed:
