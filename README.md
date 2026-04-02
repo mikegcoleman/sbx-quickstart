@@ -472,7 +472,8 @@ git push origin add-search
 git push origin add-notif
 
 gh pr create --head add-search --title "Implement issue search"
-gh pr create --head add-notif --title "Implement status change notifications"```
+gh pr create --head add-notif --title "Implement status change notifications"
+```
 
 ---
 
