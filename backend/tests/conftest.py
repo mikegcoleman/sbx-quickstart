@@ -4,6 +4,10 @@ Pytest fixtures for DevBoard backend tests.
 Uses an in-memory SQLite database so tests run without Postgres.
 """
 
+import os
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

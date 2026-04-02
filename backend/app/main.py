@@ -4,9 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import auth, comments, issues, projects
 
-# Create all tables on startup (use Alembic migrations for production)
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
     title="DevBoard API",
     description="Developer issue and project tracker — demo app for Docker Sandboxes guide",
