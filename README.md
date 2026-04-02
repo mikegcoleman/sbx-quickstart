@@ -450,8 +450,6 @@ When you're ready to review and open a PR:
 ```bash
 git diff main..fix-bugs
 
-git add .
-git commit -m "fixing bugs"
 git push origin fix-bugs
 
 gh pr create \
@@ -500,13 +498,22 @@ When both are done, review each branch and open PRs (make sure you are in `~/sbx
 
 ```bash
 git diff main..add-search
-git diff main..add-notif
 
 git push origin add-search
+
+gh pr create --head add-search \
+  --title "Implement issue search" \
+  --body "Implement issue search"  
+```
+
+```bash
+git diff main..add-notif
+
 git push origin add-notif
 
-gh pr create --head add-search --title "Implement issue search"
-gh pr create --head add-notif --title "Implement status change notifications"
+gh pr create --head add-notif \
+  --title "Implement status change notifications" \
+  --body "Implement status change notifications"
 ```
 
 ---
