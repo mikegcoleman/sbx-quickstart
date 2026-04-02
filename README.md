@@ -201,6 +201,9 @@ sbx secret ls
 | `github`    | `GH_TOKEN`, `GITHUB_TOKEN`                    | `api.github.com`, `github.com`      |
 | `google`    | `GEMINI_API_KEY`, `GOOGLE_API_KEY`            | `generativelanguage.googleapis.com` |
 | `groq`      | `GROQ_API_KEY`                                | `api.groq.com`                      |
+| `mistral`   | `MISTRAL_API_KEY`                             | `api.mistral.ai`                    |
+| `nebius`    | `NEBIUS_API_KEY`                              | `api.studio.nebius.ai`              |
+| `xai`       | `XAI_API_KEY`                                 | `api.x.ai`                          |
 | `aws`       | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`  | AWS Bedrock endpoints               |
 
 For services not in this list, you can write values to `/etc/sandbox-persistent.sh`
