@@ -93,7 +93,7 @@ git clone https://github.com/<your-username>/sbx-quickstart.git ~/sbx-quickstart
 cd ~/sbx-quickstart
 ```
 
-From this point on, all commands assume you're in `~/sbx-quickstart`. No further `cd` into the repo directory is needed.
+From this point on, all commands assume you're in `~/sbx-quickstart`. In some cases, such as opening a new shell, you will need to change into that directory again, but the guide should direct you if that's the case. 
 
 ---
 
@@ -161,9 +161,6 @@ Choose **Balanced** for this guide. It allows AI provider APIs, package managers
 (npm, pip, PyPI), GitHub, and container registries out of the box. You can add more
 hosts later with `sbx policy allow`.
 
-The first run pulls the agent image (~1–2 minutes). Subsequent starts reuse the cache
-and are nearly instant.
-
 ---
 
 ## 4. Secrets and credentials
@@ -190,6 +187,9 @@ You can doublecheck that the credential was added.
 
 ```bash
 sbx secret ls
+
+SCOPE      SERVICE   SECRET
+(global)   github    gho_TK421****...****R2D2
 ```
 
 ### Supported services
@@ -302,15 +302,6 @@ any changes you make on the host while it's running.
 - Type **`!`** before any command inside Claude to run it as a shell command without leaving the session — e.g. `!ls` or `!git status`.
 
 Go ahead and exit the sandbox by **pressing `ctrl-c` twice** 
-
-Check what's running from any terminal:
-
-```bash
-sbx ls
-
-SANDBOX      AGENT    STATUS    PORTS   WORKSPACE
-quickstart   claude   running           /Users/claude/sbx-quickstart
-```
 
 ---
 
