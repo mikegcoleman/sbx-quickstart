@@ -658,25 +658,6 @@ sbx policy allow network "*.npmjs.org,*.pypi.org,files.pythonhosted.org"
 sbx policy deny network ads.example.com
 ```
 
-### Try "Locked Down" mode
-
-Reset to a fresh policy selection:
-
-```bash
-sbx policy reset
-# Choose "Locked Down" (option 3)
-```
-
-Then start a sandbox. Claude won't be able to reach `api.anthropic.com` until you
-explicitly allow it:
-
-```bash
-sbx policy allow network api.anthropic.com
-```
-
-This demonstrates the principle of least privilege — your agent can only talk to what
-you've approved.
-
 ### Restore Balanced
 
 ```bash
