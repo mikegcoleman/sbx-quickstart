@@ -69,10 +69,7 @@ def list_issues(
 
     total = query.count()
 
-    # BUG: Pagination offset is wrong. Should be (page - 1) * page_size.
-    # Using page * page_size skips the first page entirely and returns
-    # wrong results for every subsequent page.
-    skip = page * page_size
+    skip = (page - 1) * page_size
     items = query.order_by(models.Issue.created_at.desc()).offset(skip).limit(page_size).all()
 
     return schemas.PaginatedIssues(total=total, page=page, page_size=page_size, items=items)
