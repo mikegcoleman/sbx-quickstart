@@ -98,60 +98,30 @@ From this point on, all commands assume you're in `~/sbx-quickstart`. No further
 
 ## 3. Installation
 
+> Docker Desktop is **not** required to run `sbx`
+
 ### macOS (Apple Silicon required)
 
-**Step 1** — Install the CLI via Homebrew:
+**Install the CLI via Homebrew**
 
 ```bash
 brew install docker/tap/sbx
 ```
 
-**Step 2** — Sign in with your Docker account:
-
-```bash
-sbx login
-```
-
-This opens a browser for Docker OAuth. The CLI needs a Docker account to tie sandboxes
-to a verified identity and enable governance features. Your code and prompts are never
-sent to Docker.
-
-**Step 3** — Verify:
-
-```bash
-sbx version
-```
-
-> Docker Desktop is **not** required.
-
----
-
 ### Windows (x86_64, Windows 11 required)
 
-**Step 1** — Enable the Windows Hypervisor Platform (requires an elevated terminal):
+**Enable the Windows Hypervisor Platform** (requires an elevated terminal):
 
 ```powershell
 Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
 ```
 
-Restart your machine when prompted.
+> Restart your machine when prompted.
 
-**Step 2** — Install the `sbx` CLI via `winget`:
+**Install the `sbx` CLI via `winget`**
 
 ```powershell
 winget install Docker.Sbx
-```
-
-**Step 3** — Sign in:
-
-```powershell
-sbx login
-```
-
-**Step 4** — Verify:
-
-```powershell
-sbx version
 ```
 
 > **Windows note**: By default, Windows sandboxes use non-Docker template variants —
@@ -161,6 +131,37 @@ sbx version
 > ```powershell
 > sbx run --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
 > ```
+
+Now that `sbx`has been installed it's time to do some initial configuration. 
+
+**Sign in**
+
+You need to sign in with your Docker ID in order to use `sbx`. Follow the OAuth workflow.
+
+```bash
+sbx login
+```
+
+**Set default network policy**
+
+On your **very first run** the daemon prompts you to choose a network policy:
+
+```
+Choose a default network policy:
+
+     1. Open         — All network traffic allowed, no restrictions.
+     2. Balanced     — Default deny, with common dev sites allowed.
+     3. Locked Down  — All network traffic blocked unless you allow it.
+
+  Use ↑/↓ to navigate, Enter to select, or press 1–3.
+```
+
+Choose **Balanced** for this guide. It allows AI provider APIs, package managers
+(npm, pip, PyPI), GitHub, and container registries out of the box. You can add more
+hosts later with `sbx policy allow`.
+
+The first run pulls the agent image (~1–2 minutes). Subsequent starts reuse the cache
+and are nearly instant.
 
 ---
 
@@ -184,6 +185,12 @@ echo "$(gh auth token)" | sbx secret set -g github
 > Sandbox-scoped secrets (without `-g`) can be added at any time and override the
 > global value for that sandbox.
 
+You can doublecheck that the credential was added. 
+
+```bash
+sbx secret ls
+```
+
 ### Supported services
 
 | Service     | Environment variable(s)                       | API domain(s)                       |
@@ -206,28 +213,18 @@ isn't needed.
 
 From `~/sbx-quickstart`, launch your sandbox:
 
+***Mac users**
+
 ```bash
 sbx run --name=quickstart claude
 ```
+***Windows users***
 
-On your **very first run** the daemon prompts you to choose a network policy:
+By default the Windows sandbox templates do not include Docker engine, but you will want the engine for later exercises so you need to pass `--template docker.io/docker/sandbox-templates:claude-code-docker` wehen you create the sandbox
 
+```powershell
+sbx run --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude
 ```
-Choose a default network policy:
-
-     1. Open         — All network traffic allowed, no restrictions.
-     2. Balanced     — Default deny, with common dev sites allowed.
-     3. Locked Down  — All network traffic blocked unless you allow it.
-
-  Use ↑/↓ to navigate, Enter to select, or press 1–3.
-```
-
-Choose **Balanced** for this guide. It allows AI provider APIs, package managers
-(npm, pip, PyPI), GitHub, and container registries out of the box. You can add more
-hosts later with `sbx policy allow`.
-
-The first run pulls the agent image (~1–2 minutes). Subsequent starts reuse the cache
-and are nearly instant.
 
 ### Log in to Claude
 
@@ -243,6 +240,7 @@ Choose your preferred login option.
 > sandbox will not automatically open a browser. Copy the login URL manually, complete
 > the OAuth flow, and paste the returned code back into the sandbox. You only need to
 > do this once.
+
 
 ---
 
@@ -266,29 +264,25 @@ any changes you make on the host while it's running.
 
 `sbx run` is interactive — it occupies your terminal as a live agent session.
 
-- Press **`Ctrl-C` twice** to exit the session and drop back to your host terminal. The sandbox keeps running.
+- Press **`Ctrl-C` twice** to exit the session and drop back to your host terminal. 
 - Type **`!`** before any command inside Claude to run it as a shell command without leaving the session — e.g. `!ls` or `!git status`.
 
-Reconnect to your sandbox at any time:
-
-```bash
-sbx run --name=quickstart claude
-```
+Go ahead and exit the sandbox by **pressing `ctrl-c` twice** 
 
 Check what's running from any terminal:
 
 ```bash
 sbx ls
-```
 
-[output placeholder]
+SANDBOX      AGENT    STATUS    PORTS   WORKSPACE
+quickstart   claude   running           /Users/claude/sbx-quickstart
+```
 
 ---
 
 ## 7. The interactive TUI dashboard
 
-Running `sbx` with no arguments opens the TUI. Run it in a new terminal tab while
-Claude is running in another.
+Running `sbx` with no arguments opens the TUI. 
 
 ```bash
 sbx
@@ -311,7 +305,7 @@ sandbox makes — which hosts were reached, which were blocked. Use the arrow ke
 navigate the log and allow or block hosts directly. This is the fastest way to debug
 "why can't Claude install this package?"
 
-Press `Ctrl-C` to exit the dashboard without stopping any sandboxes.
+**Press `Ctrl-C` and then `Y`** to exit the dashboard without stopping any sandboxes.
 
 ---
 
@@ -324,10 +318,12 @@ bugs, and confirm everything passes.
 Reconnect to your sandbox:
 
 ```bash
-sbx run --name=quickstart claude
+sbx run quickstart
 ```
 
 **Step 1 — Run the tests:**
+
+Give Claude Code the following prompt
 
 ```
 Set up the Python environment for the FastAPI backend and run the test suite.
@@ -339,9 +335,11 @@ Report:
 Use pytest with verbose output: cd backend && pytest tests/ -v
 ```
 
-[output placeholder]
+It will take about 3-4 minutes for this to all complete. 
 
 **Step 2 — Fix the bugs:**
+
+Give Claude Code the following prompt. 
 
 ```
 Three tests are failing. Fix each bug:
@@ -356,11 +354,13 @@ For each fix:
 - Re-run the specific test to confirm it passes before moving on
 ```
 
-While Claude works, open the files in your editor on the host. You'll see Claude's
-edits appear in real time — the workspace mount is bidirectional and instant. No copy
+While Claude works, you can open the affected files in your editor on the host. You'll see Claude's
+edits — the workspace mount is bidirectional and instant. No copy
 step, no polling delay.
 
 **Step 3 — Confirm everything passes:**
+
+Use the following prompt with Claude Code. 
 
 ```
 Run the full test suite and confirm all tests pass (or are intentionally skipped).
@@ -385,25 +385,34 @@ anything lands, or when running multiple agents simultaneously.
 
 ### Single branch: working in isolation
 
+If you are currently in the sandbox **press `ctrl-c` twice to exit**
+
 Add `--branch` to put Claude on its own worktree. This works on your existing
 `quickstart` sandbox — no new sandbox is created:
 
 ```bash
-sbx run --name=quickstart claude --branch=fix-bugs
+sbx run quickstart  --branch=fix-bugs
 ```
 
-`sbx` creates a worktree under `.sbx/` in your repo root. Give Claude a task:
+`sbx` creates a worktree under `.sbx/sandbox-worktrees` in your repo root. Give Claude a task:
+
+Issue the following command 
 
 ```
 The test suite has failing tests. Fix the pagination bug in backend/app/routers/issues.py
 and the updated_at bug in backend/app/models.py. Commit the fixes with a descriptive message.
 ```
 
-Monitor from a second terminal without interrupting the session:
+Monitor **from a second terminal** without interrupting the session
+
+You can find the worktree directory under your your workspace, as well as through git. 
 
 ```bash
+cd ~/sbx-quickstart
+
+ls ./.sbx/
+
 git worktree list
-git diff main..fix-bugs
 ```
 
 When you're ready to review and open a PR:
@@ -411,17 +420,14 @@ When you're ready to review and open a PR:
 ```bash
 git diff main..fix-bugs
 
+git add *
+git commit -m "fixing bugs"
+git push origin fixed-bugs
+
 gh pr create \
   --head fix-bugs \
   --title "Fix: pagination offset and missing onupdate" \
   --body "Fixes off-by-one error in list_issues() and adds missing onupdate= to models."
-```
-
-Clean up when done:
-
-```bash
-sbx rm quickstart
-# Removes the VM, worktree, and local branch automatically
 ```
 
 ### Parallel agents
@@ -441,13 +447,13 @@ Launch both agents, each in its own terminal:
 **Terminal 1:**
 
 ```bash
-sbx run --name=add-search claude --branch=add-search -- "$(cat prompts/implement-search.txt)"
+sbx run quickstart --branch=add-search -- "$(cat prompts/implement-search.txt)"
 ```
 
 **Terminal 2:**
 
 ```bash
-sbx run --name=add-notif claude --branch=add-notif -- "$(cat prompts/implement-notifications.txt)"
+sbx run quickstart --branch=add-notif -- "$(cat prompts/implement-notifications.txt)"
 ```
 
 > **Note**: the `"$(cat ...)"` must be quoted or the prompt won't be passed correctly
@@ -456,21 +462,17 @@ sbx run --name=add-notif claude --branch=add-notif -- "$(cat prompts/implement-n
 Each agent spins up its own sandbox and worktree, reads its prompt, and gets to work
 independently. Watch them from a third terminal:
 
-```bash
-sbx ls
-```
-
-[output placeholder]
-
-When both are done, review each branch and open PRs:
+When both are done, review each branch and open PRs (make sure you are in `~/sbx-quickstart`:
 
 ```bash
 git diff main..add-search
 git diff main..add-notif
 
+git push origin add-search
+git push origin add-notif
+
 gh pr create --head add-search --title "Implement issue search"
-gh pr create --head add-notif --title "Implement status change notifications"
-```
+gh pr create --head add-notif --title "Implement status change notifications"```
 
 ---
 
@@ -479,10 +481,10 @@ gh pr create --head add-notif --title "Implement status change notifications"
 Each sandbox has its own private Docker daemon. Claude can run `docker compose up`,
 build images, and start containers — none of which appear in your host's `docker ps`.
 
-Reconnect to your sandbox:
+If necessary, reconnect to your sandbox:
 
 ```bash
-sbx run --name=quickstart claude
+sbx run quickstart
 ```
 
 **Give Claude this prompt:**
@@ -502,8 +504,11 @@ Make sure all servers bind to 0.0.0.0 so I can reach them via port forwarding.
 Claude will `docker compose up --build -d`, wait for the `db` healthcheck to pass,
 then hit the API endpoints with `curl` or `httpx`.
 
-> **Windows users**: remember to pass `--template docker.io/docker/sandbox-templates:claude-code-docker`
-> when creating the sandbox if you need Docker inside the VM.
+You can see the running containers in the sandbox. 
+
+```bash
+! docker ps
+```
 
 The containers Claude starts live entirely inside the sandbox. When you `sbx rm` the
 sandbox, all images, containers, and Postgres data are deleted automatically.
@@ -516,7 +521,7 @@ Sandboxes are network-isolated — your browser can't reach a server inside one 
 default. `sbx ports` punches a hole from a host port to a sandbox port.
 
 > **Terminal note**: `sbx ports` is a host-side command. Run it in a new terminal tab
-> while Claude is running, or exit the session first (`Ctrl-C`).
+> while Claude is running
 
 ### Forward the API
 
@@ -532,16 +537,20 @@ Open `http://localhost:8080/docs` — that's the live Swagger UI running inside 
 
 ```bash
 sbx ports quickstart --publish 3001:3000
-open http://localhost:3001
 ```
+
+Open http://localhost:3001 in your web browser
+
 
 ### Check active ports
 
 ```bash
 sbx ports quickstart
-```
 
-[output placeholder]
+HOST IP     HOST PORT   SANDBOX PORT   PROTOCOL
+127.0.0.1   3001        3000           tcp
+127.0.0.1   8080        8000           tcp
+```
 
 ### Stop forwarding
 
@@ -578,7 +587,7 @@ access rules you define. There are three built-in postures:
 sbx policy ls
 ```
 
-[output placeholder]
+You will see a long list of allowed websites. 
 
 ### See what the sandbox is actually hitting
 
