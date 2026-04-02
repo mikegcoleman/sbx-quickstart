@@ -420,11 +420,7 @@ sbx run quickstart --branch=fix-bugs
 
 > **Tip**: You don't have to name the branch yourself. `--branch auto` lets `sbx` generate a name for you — handy when you just want isolation without thinking about branch names.
 
-`sbx` creates a worktree under `.sbx/quickstart-worktrees/fix-bugs` in your repo root. If you haven't already, add `.sbx/` to your `.gitignore` so worktrees don't show up as untracked files:
-
-```bash
-echo '.sbx/' >> .gitignore
-```
+`sbx` creates a worktree under `.sbx/quickstart-worktrees/fix-bugs` in your repo root.
 
 Give Claude the following prompt:
 
