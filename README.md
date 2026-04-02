@@ -843,30 +843,26 @@ Rules:
 ```bash
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
 sbx run --name=quickstart claude         # create and attach to a named sandbox
-sbx run --name=quickstart claude         # reconnect to an existing sandbox
-sbx run --name=quickstart claude \
-  --branch=my-feature                    # branch mode — Claude works on own worktree
-sbx run --name=quickstart claude \
-  --branch=my-feature -- "$(cat p.txt)" # pass a prompt from a file (quotes required)
+sbx run quickstart                       # reconnect to an existing sandbox
+sbx run quickstart --branch=my-feature   # branch mode — Claude works on own worktree
+sbx run quickstart --branch=my-feature \
+  -- "$(cat p.txt)"                      # pass a prompt from a file (quotes required)
 sbx create --name=quickstart claude      # create without attaching
 sbx ls                                   # list sandboxes
 sbx stop quickstart                      # pause (preserves installed packages)
 sbx rm quickstart                        # delete sandbox + VM + worktrees
 
 # ── Attach & shell ─────────────────────────────────────────────────────────────
-# Ctrl-C twice inside sbx run            → exit session (sandbox keeps running)
 sbx exec -it quickstart bash             # shell inside sandbox  [host terminal]
-sbx exec -d quickstart bash -c "cmd"    # one-off command        [host terminal]
+sbx exec -d quickstart bash -c "cmd"     # one-off command        [host terminal]
 
 # ── Port forwarding ────────────────────────────────────────────────────────────
-# (all sbx ports commands run in a host terminal)
 sbx ports quickstart --publish 8080:8000   # host:8080 → sandbox:8000
 sbx ports quickstart --publish 3000        # OS picks host port
 sbx ports quickstart                       # show active forwarding rules
 sbx ports quickstart --unpublish 8080:8000 # stop forwarding
 
 # ── Network policies ───────────────────────────────────────────────────────────
-# (all sbx policy commands run in a host terminal)
 sbx policy ls                                       # list active rules
 sbx policy log                                      # show connection log
 sbx policy log quickstart                           # filter by sandbox
