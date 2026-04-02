@@ -121,7 +121,7 @@ Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
 **Install the `sbx` CLI via `winget`**
 
 ```powershell
-winget install Docker.Sbx
+winget install -h Docker.sbx
 ```
 
 > **Windows note**: By default, Windows sandboxes use non-Docker template variants —
@@ -129,7 +129,7 @@ winget install Docker.Sbx
 > (required for the Docker Compose exercise), pass `--template`:
 >
 > ```powershell
-> sbx run --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
+> sbx create --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude
 > ```
 
 Now that `sbx`has been installed it's time to do some initial configuration. 
@@ -211,19 +211,37 @@ isn't needed.
 
 ## 5. Create your sandbox
 
-From `~/sbx-quickstart`, launch your sandbox:
+`sbx create` provisions a sandbox without attaching to it — useful when you want to
+set it up, verify it appears in `sbx ls`, or script multiple sandboxes before starting
+any of them. `sbx run` then attaches an agent session to an existing sandbox (or
+creates one on the fly if it doesn't exist yet).
 
-***Mac users**
+From `~/sbx-quickstart`, create your sandbox:
+
+**Mac users:**
 
 ```bash
-sbx run --name=quickstart claude
+sbx create --name=quickstart claude
 ```
-***Windows users***
 
-By default the Windows sandbox templates do not include Docker engine, but you will want the engine for later exercises so you need to pass `--template docker.io/docker/sandbox-templates:claude-code-docker` wehen you create the sandbox
+**Windows users:**
+
+By default the Windows sandbox templates do not include the Docker engine, but you will need it for later exercises. Pass `--template` at create time:
 
 ```powershell
-sbx run --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude
+sbx create --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude
+```
+
+Confirm it was created:
+
+```bash
+sbx ls
+```
+
+Now attach to it:
+
+```bash
+sbx run quickstart
 ```
 
 ### Log in to Claude
@@ -420,9 +438,9 @@ When you're ready to review and open a PR:
 ```bash
 git diff main..fix-bugs
 
-git add *
+git add .
 git commit -m "fixing bugs"
-git push origin fixed-bugs
+git push origin fix-bugs
 
 gh pr create \
   --head fix-bugs \
@@ -702,7 +720,7 @@ Type `exit` to leave. The Claude session keeps running.
 ### Run a one-off command without opening a shell
 
 ```bash
-sbx exec -d quickstart bash -c "cd backend && pytest tests/ -v --tb=short"
+sbx exec -it quickstart bash -c "cd backend && pytest tests/ -v --tb=short"
 ```
 
 ### Set a persistent environment variable
@@ -867,7 +885,7 @@ sbx policy ls                                       # list active rules
 sbx policy log                                      # show connection log
 sbx policy log quickstart                           # filter by sandbox
 sbx policy allow network example.com                # allow a host
-sbx policy allow network "*.npm.org,*.pypi.org"     # allow multiple
+sbx policy allow network "*.npmjs.org,*.pypi.org"    # allow multiple
 sbx policy deny network ads.example.com             # block a host
 sbx policy rm network --resource example.com        # remove a rule
 sbx policy reset                                    # wipe rules, reprompt for policy
