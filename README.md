@@ -477,8 +477,12 @@ sbx run quickstart --branch=add-notif -- "$(cat prompts/implement-notifications.
 > **Note**: the `"$(cat ...)"` must be quoted or the prompt won't be passed correctly
 > to the sandbox.
 
-Each agent spins up its own sandbox and worktree, reads its prompt, and gets to work
-independently. Watch them from a third terminal:
+Both commands run against the same `quickstart` sandbox — no new sandbox is created.
+Each gets its own isolated Git worktree under `.sbx/quickstart-worktrees/`, so they
+read and write completely separate copies of the code with no conflicts. You'll still
+see only one entry in `sbx ls`.
+
+Each agent reads its prompt and gets to work independently. Watch them from a third terminal:
 
 When both are done, review each branch and open PRs (make sure you are in `~/sbx-quickstart`:
 
