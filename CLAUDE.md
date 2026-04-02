@@ -14,15 +14,20 @@ Key sub-pages:
 - Architecture, security, credentials
 - Troubleshooting / FAQ
 
-## Current Task
+## Current Status
 
-Audit and improve `README.md` for:
-1. Technical accuracy against current docs
-2. Complete feature coverage
-3. Good flow (no abrupt topic jumps, no unnecessary context switches)
-4. No duplicated concepts
+The audit is complete and all issues have been fixed except one pending verification:
 
-**Do not make changes until the user instructs you to fix specific issues.**
+**OPEN: Issue #3 — Spurious `git add`/`git commit` in §9 PR workflow**
+After branch mode, the PR review block contains:
+```bash
+git add .
+git commit -m "fixing bugs"
+git push origin fix-bugs
+```
+Claude already commits in the worktree, so the `git add` and `git commit` lines may be wrong (they would run in the main working tree, not the worktree). However, the user was experiencing issues that may have required these lines — **do not remove them until the user has tested and confirmed they are not needed.**
+
+All other issues from the original audit have been resolved. See the Known Issues section below for the full list with status.
 
 ---
 
