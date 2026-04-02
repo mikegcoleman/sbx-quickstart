@@ -187,7 +187,11 @@ You can doublecheck that the credential was added.
 
 ```bash
 sbx secret ls
+```
 
+You should see something like: 
+
+```
 SCOPE      SERVICE   SECRET
 (global)   github    gho_TK421****...****R2D2
 ```
