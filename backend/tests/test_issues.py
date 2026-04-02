@@ -129,24 +129,8 @@ def test_pagination_second_page(client, auth_headers, project):
 # ── Search (not yet implemented) ──────────────────────────────────────────────
 
 
-def test_search_returns_501_until_implemented(client, auth_headers, project):
-    """Search endpoint should return 501 until the TODO is completed."""
-    resp = client.get(
-        f"/projects/{project['id']}/issues/search",
-        params={"q": "login"},
-        headers=auth_headers,
-    )
-    assert resp.status_code == 501
-
-
 def test_search_finds_matching_issues(client, auth_headers, project):
-    """
-    TODO TEST: Once search is implemented, this should pass.
-
-    After completing the TODO in issues.py, the search endpoint should
-    return issues whose title or description contains the query string.
-    This test will FAIL until the TODO is implemented.
-    """
+    """Search endpoint returns issues matching title or description (case-insensitive)."""
     _create_issue(client, auth_headers, project["id"], title="Login page crashes on Safari")
     _create_issue(client, auth_headers, project["id"], title="Dashboard layout broken")
 
@@ -155,12 +139,6 @@ def test_search_finds_matching_issues(client, auth_headers, project):
         params={"q": "login"},
         headers=auth_headers,
     )
-    # Will return 501 until implemented — change to assert resp.status_code == 200
-    # after completing the TODO.
-    if resp.status_code == 501:
-        import pytest
-        pytest.skip("Search not yet implemented — complete the TODO first")
-
     assert resp.status_code == 200
     results = resp.json()
     assert len(results) == 1
