@@ -126,17 +126,7 @@ def test_pagination_second_page(client, auth_headers, project):
     )
 
 
-# ── Search (not yet implemented) ──────────────────────────────────────────────
-
-
-def test_search_returns_501_until_implemented(client, auth_headers, project):
-    """Search endpoint should return 501 until the TODO is completed."""
-    resp = client.get(
-        f"/projects/{project['id']}/issues/search",
-        params={"q": "login"},
-        headers=auth_headers,
-    )
-    assert resp.status_code == 501
+# ── Search ────────────────────────────────────────────────────────────────────
 
 
 def test_search_finds_matching_issues(client, auth_headers, project):
