@@ -125,14 +125,6 @@ Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
 winget install -h Docker.sbx
 ```
 
-> **Windows note**: By default, Windows sandboxes use non-Docker template variants —
-> the `docker` command isn't available inside the VM. If you need Docker-in-sandbox
-> (required for the Docker Compose exercise), pass `--template`:
->
-> ```powershell
-> sbx create --template docker.io/docker/sandbox-templates:claude-code-docker --name=quickstart claude .
-> ```
-
 Now that `sbx`has been installed it's time to do some initial configuration. 
 
 **Sign in**
@@ -238,18 +230,10 @@ creates one on the fly if it doesn't exist yet).
 
 > **Important**: run these commands from your cloned repo directory. If you followed section 2, that's `~/sbx-quickstart`. The `.` tells `sbx` to mount the current directory as the workspace.
 
-**Mac users:**
+Start a sandbox named `quickstart` using the claude agent:
 
 ```bash
-sbx create --name=quickstart claude .
-```
-
-**Windows users:**
-
-By default the Windows sandbox templates do not include the Docker engine, but you will need it for later exercises. Pass `--template` at create time:
-
-```powershell
-sbx create --name=quickstart --template docker.io/docker/sandbox-templates:claude-code-docker claude .
+sbx create --name=quickstart claude
 ```
 
 Confirm it was created:
