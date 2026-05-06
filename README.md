@@ -233,7 +233,7 @@ creates one on the fly if it doesn't exist yet).
 Start a sandbox named `quickstart` using the claude agent:
 
 ```bash
-sbx create --name=quickstart claude
+sbx create --name=quickstart claude .
 ```
 
 Confirm it was created:
