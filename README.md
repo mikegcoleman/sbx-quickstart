@@ -1,7 +1,6 @@
 # Docker Sandboxes: A Hands-On Guide with Claude
 
-> **Status**: This guide covers the Docker Sandboxes `sbx` release as of its experimental launch.
-
+> **Status**: This guide covers the Docker Sandboxes `sbx` 
 ---
 
 ## What you'll need
